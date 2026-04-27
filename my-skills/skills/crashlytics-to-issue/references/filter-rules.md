@@ -116,7 +116,7 @@ gh api graphql -f query='
 
 `config.regression.grace_hours` (기본 1). PR 머지로 이슈가 close되고 나서 **릴리스 빌드가 스토어에 배포되기 전**에 발생하는 마지막 이벤트를 회귀로 오판하지 않도록 하는 완충 시간.
 
-1시간이 너무 짧거나 길다면 `config.json`에서 값만 조정한다. 2026년 기준 모바일 앱의 TestFlight·Internal Testing 배포가 수 분 내 가능하지만, 프로덕션 릴리스는 수 시간~수 일 소요되기도 한다. **보수적으로** 회귀 트리거를 늦추려면 24~72로 늘릴 수 있다.
+1시간이 너무 짧거나 길다면 사용자 인스턴스(`${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`)에서 값만 조정한다. 번들 템플릿(`${CLAUDE_SKILL_DIR}/config.json`)은 플러그인 업데이트 시 교체되므로 편집 대상이 아니다. 2026년 기준 모바일 앱의 TestFlight·Internal Testing 배포가 수 분 내 가능하지만, 프로덕션 릴리스는 수 시간~수 일 소요되기도 한다. **보수적으로** 회귀 트리거를 늦추려면 24~72로 늘릴 수 있다.
 
 **경계 규약**: `issue.last_seen_at > gh.closedAt + grace` — 등호는 SKIP 쪽(`already_fixed`)에 포함된다.
 

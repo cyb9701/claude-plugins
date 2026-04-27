@@ -9,7 +9,7 @@ effort: xhigh
 
 GitHub Issue로 적재된 Firebase Crashlytics 오류를 워크트리 격리 환경에서 **이슈마다 독립된 PR**로 자동 분석·수정·생성한 뒤, 사용자의 일괄 검토 후 머지하고 GitHub Issue·Crashlytics를 PR 단위로 종결한다.
 
-프로젝트 고유 값(서비스명·프로젝트 ID·앱 ID·레포·라벨·워크트리 초기화 명령)은 전부 `config.json`으로 외부화한다 — SKILL.md 본문과 `references/*`에는 하드코딩하지 않는다.
+프로젝트 고유 값(서비스명·프로젝트 ID·앱 ID·레포·라벨·워크트리 초기화 명령)은 전부 `config.json`으로 외부화한다 — SKILL.md 본문과 `references/*`에는 하드코딩하지 않는다. 사용자별 인스턴스는 `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`(플러그인 업데이트 후에도 보존되는 영구 저장소, **프로젝트별 격리**)에 위치하고, 작성자가 제공하는 기본값 템플릿은 번들된 `${CLAUDE_SKILL_DIR}/config.json`이다. `<PROJECT_KEY>`는 호출 시점에 git remote URL에서 `<owner>-<repo>` 형태로 자동 추출되어, 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 셋업이 서로 충돌하지 않는다(추출 로직은 Step 2 참고).
 
 ## Prerequisites
 
@@ -33,7 +33,15 @@ GitHub Issue로 적재된 Firebase Crashlytics 오류를 워크트리 격리 환
 
 ### Step 2. 프로젝트·앱·GitHub 셋업 (첫 실행 또는 `--reconfigure`)
 
-스킬 디렉토리의 `config.json`을 읽는다. 다음 중 하나라도 해당하면 대화형 셋업으로 진입, 그렇지 않으면 Step 3로 건너뛴다.
+**저장 경로 결정 — PROJECT_KEY 추출**: 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 Firebase·repo·라벨 셋업이 독립 보존되도록, config는 프로젝트별 서브디렉토리에 저장한다. PROJECT_KEY는 다음 우선순위로 추출하며, 모든 결과는 lowercase로 정규화하고 영숫자·하이픈 외 문자를 `-`로 치환한 뒤 연속 하이픈을 1개로 압축한다.
+
+1. `git remote get-url origin`이 성공하면 URL을 파싱해 `<owner>-<repo>` 형태로 변환. 예: `https://github.com/cyb9701/claude-plugins.git` 또는 `git@github.com:cyb9701/claude-plugins.git` → `cyb9701-claude-plugins`
+2. 실패 시 `git rev-parse --show-toplevel`의 basename 정규화 (예: `/Users/cyb/dev/myapp` → `myapp`)
+3. 둘 다 실패 시 `pwd`의 basename 정규화
+
+**저장 경로**: `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`
+
+해당 경로의 파일을 읽는다. 파일이 없으면 번들된 기본값 `${CLAUDE_SKILL_DIR}/config.json`을 복사해 초기화한다 — 플러그인 업데이트 시 `${CLAUDE_PLUGIN_DATA}`만 보존되며, 프로젝트별로 격리된 셋업이 유지된다. 다음 중 하나라도 해당하면 대화형 셋업으로 진입, 그렇지 않으면 Step 3로 건너뛴다.
 
 - `firebase.project_id == null`
 - `firebase.apps`가 빈 배열
@@ -351,6 +359,7 @@ Step 6-2의 `[B]` 분기에서 미선택된 PR은 머지 시도 없이 다음과
 
 ## 설계 원칙 요약
 
+- **영구 설정 분리 + 프로젝트 격리**: 사용자 셋업 결과는 `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`에, 작성자 기본값은 `${CLAUDE_SKILL_DIR}/config.json`(번들 템플릿)에 분리한다. PROJECT_KEY는 git remote URL의 `<owner>-<repo>` 형태로 자동 추출되므로 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 Firebase·repo·라벨 설정이 자기 디렉토리에 격리되어 서로 덮어쓰지 않는다. 플러그인 업데이트 시 `${CLAUDE_PLUGIN_DATA}`는 보존되고 `${CLAUDE_SKILL_DIR}`는 새 버전으로 교체되므로, 사용자 셋업이 살아남으면서 새 사용자는 검증된 기본값으로 시작한다.
 - **하드코딩 제로**: 서비스명·프로젝트 ID·앱 ID·레포지토리·라벨명은 전부 `config.json`으로 외부화. 라벨명은 환경마다 컨벤션이 달라(`bug`·`type:bug`·`kind/bug`·국문 라벨 등), SKILL 본문이나 references에 후보를 박아두지 않고 셋업 시 `gh label list`로 사용자 레포의 실제 등록 라벨에서만 다중 선택을 받는다. 워크트리 초기화(패키지 install·환경 파일 복사·코드 생성)는 환경별 편차가 커 자동화 대신 사용자 직접 실행으로 위임한다.
 - **결정성 우선 (Step 5-2 산출물 4종)**: 이슈 분석은 자유 서술이 아닌 `entry_point` / `cause_label`(enum) / `patch_files` / `verification_summary`(enum)의 4개 산출물로 환원. PR 본문 일관성, evals 자동 채점, 회귀 추적(분포 변화 감지)을 동시에 가능케 한다.
 - **사전 수집 캐시 (Step 4-8)**: 이슈 본문 파싱·Crashlytics 통계 조회는 Step 4에서 1회 수행해 캐시. 사이클 N개일 때 호출 횟수가 N→1로 감소. **단 BASE SHA는 캐시하지 않는다** — fetch 비용은 미미하지만 외부 협업자 push를 흡수하지 못하면 머지 단계에서 충돌로 더 비싸게 드러나기 때문.

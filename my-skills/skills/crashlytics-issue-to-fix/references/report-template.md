@@ -53,7 +53,7 @@
 
 - `conflict` 결과인 경우: 보존된 워크트리에서 `git fetch origin <BASE_BRANCH> && git rebase origin/<BASE_BRANCH>` 후 `git push --force-with-lease`. 그 다음 GitHub UI 또는 `gh pr merge <pr> --<merge_method>`로 직접 머지.
 - `user_rejected` 결과인 경우: PR을 직접 검토하고, 코멘트 반영 후 커밋을 추가하거나 `gh pr merge` / `gh pr close`로 마무리.
-- `failed` 결과인 경우: 비고 사유를 보고 재시도 여부 결정. 단순 일시적 실패면 `/crashlytics-issue-to-fix <번호>`로 단건 재실행. 보존된 워크트리에서 직접 작업 가능.
+- `failed` 결과인 경우: 비고 사유를 보고 재시도 여부 결정. 단순 일시적 실패면 `/my-skills:crashlytics-issue-to-fix <번호>`로 단건 재실행. 보존된 워크트리에서 직접 작업 가능.
 - 워크트리·브런치 일괄 정리: `git worktree list`로 잔존 항목 확인 후 본 스킬을 다시 호출하면 Step 6-6에서 일괄 정리 옵션 제공.
 ```
 

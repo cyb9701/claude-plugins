@@ -1,91 +1,127 @@
 # my-skills
 
-Claude Code 작업을 위한 유용한 skills 모음 플러그인.
+🌐 **English** | [한국어](README.ko.md)
 
-## 포함된 Skills
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](../LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-orange)](https://github.com/anthropics/claude-code)
 
-| Skill | 호출 형식 | 용도 |
-|-------|----------|------|
-| `prompt-refine` | `/my-skills:prompt-refine <텍스트>` | 사용자 프롬프트를 Claude에 최적화된 형태로 재구성. 의도 보존 우선 텍스트 변환기 |
-| `crashlytics-to-issue` | `/my-skills:crashlytics-to-issue` | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 자동 등록·동기화. 회귀(regression) 자동 감지 포함 |
-| `crashlytics-issue-to-fix` | `/my-skills:crashlytics-issue-to-fix [<issue#>...]` | GitHub Issue로 적재된 Crashlytics 오류를 워크트리 격리 환경에서 분석·수정·PR 생성·일괄 머지 |
+> A Claude Code plugin bundling skills for prompt refinement and Firebase Crashlytics automation.
+> **This is a personal project, not an official Anthropic product.**
 
-## 설치
+## Skills
 
-### 로컬 테스트 (개발 중)
+| Skill                      | Invocation                                          | Purpose                                                                                                                    |
+| -------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `prompt-refine`            | `/my-skills:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                  |
+| `crashlytics-to-issue`     | `/my-skills:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                 |
+| `crashlytics-issue-to-fix` | `/my-skills:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge. |
 
-플러그인을 마켓플레이스에 등록하지 않고 직접 로드합니다.
+## Installation
 
-```bash
-claude --plugin-dir /Users/cyb/dev/choi/claude-plugins/my-skills
-```
+### From the marketplace (recommended)
 
-세션 내에서 변경 사항을 적용하려면 다음 명령으로 핫 리로드 가능합니다.
+Open Claude Code and run inside a session:
 
-```text
+```shell
+/plugin marketplace add cyb9701/claude-plugins
+/plugin install my-skills@claude-plugins
 /reload-plugins
 ```
 
-### 마켓플레이스를 통한 설치 (배포 후)
+> **Scope is flexible** — the Crashlytics skills auto-isolate config per project (keyed by `<owner>-<repo>` from the git remote), so installing at `user` scope still keeps each project's Firebase setup separate. Use `project` or `local` scope only if you also want plugin enable/disable to be per-project.
 
-향후 마켓플레이스 등록이 완료되면 표준 플러그인 설치 절차로 사용합니다.
+### Local development
 
-```text
-/plugin install my-skills@<marketplace>
+```bash
+git clone https://github.com/cyb9701/claude-plugins.git
+claude --plugin-dir ./claude-plugins/my-skills
+```
+
+To apply changes without restarting:
+
+```shell
+/reload-plugins
 ```
 
 ## Prerequisites
 
-각 skill의 동작 환경 요구사항입니다.
+### All skills
 
-### 공통
+- Claude Code (latest version with plugin system support)
 
-- Claude Code 최신 버전 (플러그인 시스템 지원)
+### Crashlytics skills (`crashlytics-to-issue`, `crashlytics-issue-to-fix`)
 
-### Crashlytics 관련 skill (`crashlytics-to-issue`, `crashlytics-issue-to-fix`)
+- Firebase MCP tools (`mcp__firebase__*`) enabled
+- GitHub CLI (`gh`) authenticated — verify with `gh auth status`
+- `git` 2.5+ (required for worktree-based operation in `crashlytics-issue-to-fix`)
+- First run triggers an interactive setup to select project, app, repository, and labels
 
-- Firebase MCP 도구군 (`mcp__firebase__*`) 활성화
-- GitHub CLI (`gh`) 인증 완료 (`gh auth status`로 확인)
-- `git` 2.5+ (`crashlytics-issue-to-fix`의 워크트리 기반 동작에 필수)
-- 첫 실행 시 자동 셋업 대화에서 프로젝트·앱·레포·라벨 선택
+See each skill's `references/installation.md` for detailed setup instructions.
 
-상세 환경 셋업은 각 skill의 `references/installation.md`를 참고하세요.
+### `prompt-refine`
 
-### prompt-refine
+No external dependencies — closed-form text transformer using only `AskUserQuestion`.
 
-- 별도 외부 의존성 없음 (`AskUserQuestion`만 사용하는 폐쇄형 텍스트 변환기)
+## Usage
 
-## 사용 예시
+### Refine a prompt
 
-### 프롬프트 개선
-
-```text
-/my-skills:prompt-refine 이 프롬프트 다듬어줘: "코드 리뷰 부탁해"
+```shell
+/my-skills:prompt-refine Rewrite this: "please review my code"
 ```
 
-### Crashlytics 크래시를 GitHub 이슈로 동기화
+### Sync Crashlytics crashes to GitHub Issues
 
-```text
+```shell
 /my-skills:crashlytics-to-issue
 ```
 
-### GitHub 이슈로 등록된 Crashlytics 오류 자동 수정
+### Auto-fix Crashlytics issues from GitHub
 
-```text
-# label로 조회된 모든 이슈 처리
+```shell
+# Process all issues found by label
 /my-skills:crashlytics-issue-to-fix
 
-# 특정 이슈만 지정
+# Target specific issues
 /my-skills:crashlytics-issue-to-fix 150 151 152
 ```
 
-## 디렉토리 구조
+## Configuration Storage
+
+The two Crashlytics skills persist per-user **and per-project** setup results (Firebase project ID, GitHub repo, label selections, etc.) in a separate location from the bundled defaults. Plugin updates replace the bundled defaults but never overwrite user data, and each project gets its own isolated subdirectory so multiple projects on the same machine never overwrite each other.
+
+| Path                                                                  | Role                                                          | Survives update?   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------ |
+| `${CLAUDE_SKILL_DIR}/config.json`                                     | Bundled defaults template (severity thresholds, retry policy) | Replaced on update |
+| `${CLAUDE_PLUGIN_DATA}/<skill-name>/projects/<PROJECT_KEY>/config.json` | Per-user + per-project setup results                          | Preserved          |
+
+`${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/my-skills*/` (suffix varies by marketplace ID).
+
+`<PROJECT_KEY>` is auto-extracted at invocation time, in this priority order:
+
+1. `git remote get-url origin` parsed to `<owner>-<repo>` (e.g., `cyb9701-claude-plugins`)
+2. Fallback: `git rev-parse --show-toplevel` basename
+3. Final fallback: `pwd` basename
+
+This per-project keying lets the same user work across multiple projects (company repo, personal repo, OSS forks) without their Crashlytics setups overwriting each other. On first run, if the current project's user store is empty, the skill copies the bundled defaults and starts the interactive setup automatically.
+
+To re-run setup:
+
+```shell
+/my-skills:crashlytics-to-issue --reconfigure
+/my-skills:crashlytics-issue-to-fix --reconfigure
+```
+
+`prompt-refine` has no external config and is unaffected by this section.
+
+## Directory Structure
 
 ```
 my-skills/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── README.md
+├── README.ko.md
 └── skills/
     ├── crashlytics-issue-to-fix/
     │   ├── SKILL.md
@@ -101,9 +137,8 @@ my-skills/
         └── references/
 ```
 
-## 라이선스 / 배포
+Runtime user data (`~/.claude/plugins/data/my-skills*/`) is not bundled — it is created automatically on first setup.
 
-- 작성자: cyb9701 (cyb9701@gmail.com)
-- 버전: 1.0.0
+## License
 
-향후 마켓플레이스 공식 등록이 진행되면 이 섹션에 라이선스·repository·homepage 정보가 추가됩니다.
+MIT

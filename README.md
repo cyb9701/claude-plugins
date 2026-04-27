@@ -12,17 +12,17 @@ Each plugin lives in its own top-level directory with an independent `plugin.jso
 
 ## Plugins
 
-| Plugin                                | Description                                                                                                                                                |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [**my-skills**](./my-skills)          | A bundle of Claude Code skills — prompt refinement and Firebase Crashlytics ↔ GitHub Issue automation (registration, regression detection, worktree-based auto-fix). |
+| Plugin                       | Description                                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [**my-skills**](./my-skills) | A bundle of Claude Code skills — prompt refinement and Firebase Crashlytics ↔ GitHub Issue automation (registration, regression detection, worktree-based auto-fix). |
 
 ## Skills inside `my-skills`
 
-| Skill                      | Invocation                                          | Purpose                                                                                              |
-| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/my-skills:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.            |
-| `crashlytics-to-issue`     | `/my-skills:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with regression detection.     |
-| `crashlytics-issue-to-fix` | `/my-skills:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue.      |
+| Skill                      | Invocation                                          | Purpose                                                                                          |
+| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `prompt-refine`            | `/my-skills:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.        |
+| `crashlytics-to-issue`     | `/my-skills:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with regression detection. |
+| `crashlytics-issue-to-fix` | `/my-skills:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue.  |
 
 ## Quick Start
 

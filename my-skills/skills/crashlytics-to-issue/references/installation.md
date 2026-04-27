@@ -12,42 +12,30 @@
 - **대상 GitHub 레포에 아래 7개 라벨이 사전 등록되어 있어야 함.** 최초 셋업 명령은 아래 "Label Setup" 섹션 참고.
 - **대상 GitHub Organization에 Issue Types가 활성화**되어 있고 `config.github.issue_type` 값이 존재 타입이어야 함. 미활성화 조직은 `config.github.issue_type: null`로 설정해 플래그 생략 가능.
 
-## Install Locations
+## Installation
 
-두 가지 권장 위치가 있다. 상황에 맞게 선택한다.
+이 skill은 `my-skills` 플러그인의 일부로 배포된다. standalone 복사·설치(`~/.claude/skills/<name>/`)는 더 이상 지원하지 않으며, 플러그인 활성화를 통해서만 사용한다.
 
-### A. User-global (개인 개발자 기본값)
+플러그인 자체 설치·로드 방법은 [my-skills 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 즉시 반영할 수 있다.
 
-```
-~/.claude/skills/crashlytics-to-issue/
-```
+## Storage Layout
 
-- 모든 프로젝트에서 같은 스킬을 사용.
-- 단일 `config.json`을 여러 프로젝트가 공유 — 한 사람이 여러 Firebase 프로젝트를 오가는 경우 `--reconfigure`로 매번 전환.
+플러그인이 활성화되면 두 종류의 config 파일이 사용된다. 두 경로의 책임은 **읽기 전용 기본값**과 **쓰기 가능한 사용자 인스턴스**로 명확히 분리되어 있다.
 
-### B. Project-local (팀 배포 기본값)
+| 경로 | 역할 | 보존 여부 | 누가 쓰나 |
+|------|------|----------|----------|
+| `${CLAUDE_SKILL_DIR}/config.json` | 작성자가 번들한 기본값 템플릿(severity 임계치, retry 정책, query 기본값 등) | 플러그인 업데이트 시 새 버전으로 교체 | 작성자(릴리스 시) |
+| `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json` | 사용자별 + 프로젝트별 셋업 결과(project_id, apps[], repo) + 사용자 튜닝 값 | 플러그인 업데이트 후에도 보존 | skill의 셋업 단계 |
 
-```
-<your-repo>/.claude/skills/crashlytics-to-issue/
-```
+`${CLAUDE_PLUGIN_DATA}`는 `~/.claude/plugins/data/<plugin-id>/`로 해석되며, 플러그인을 마지막 스코프에서 제거할 때(또는 `--keep-data` 없이 uninstall)까지 유지된다.
 
-- `config.json`이 저장소에 커밋되어 팀원 전원이 동일한 설정으로 동작.
-- 팀마다 별도 Firebase 프로젝트·GitHub 레포를 쓰는 경우에 적합.
+`<PROJECT_KEY>`는 호출 시점에 다음 우선순위로 자동 추출된다:
 
-## Installation Steps
+1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-claude-plugins`)
+2. 실패 시 `git rev-parse --show-toplevel`의 basename
+3. 둘 다 실패 시 `pwd`의 basename
 
-1. 이 스킬 디렉토리 전체를 원하는 위치에 복사:
-
-   ```bash
-   # user-global 예시
-   cp -r crashlytics-to-issue ~/.claude/skills/
-
-   # project-local 예시
-   cp -r crashlytics-to-issue <your-repo>/.claude/skills/
-   ```
-
-2. 복사된 디렉토리에 `SKILL.md`, `config.json`, `references/`가 모두 있는지 확인.
-3. 클라이언트를 재시작하거나 skill refresh를 수행해 스킬 목록에 반영.
+이 키 분리 덕분에 동일 사용자가 여러 프로젝트(예: 회사 repo / 개인 repo / 오픈소스 fork)를 오갈 때 각 프로젝트의 Firebase·repo 셋업이 서로 덮어쓰지 않고 독립 보존된다. 첫 실행 시 해당 프로젝트의 영구 저장소가 비어 있으면 SKILL.md의 Step 2가 자동으로 번들 기본값을 복사한 뒤 대화형 셋업을 시작한다.
 
 ## Label Setup (레포 1회 초기화)
 
@@ -86,16 +74,16 @@ done
 
 스킬을 호출한다:
 
-- 슬래시 커맨드: `/crashlytics-to-issue`
+- 슬래시 커맨드: `/my-skills:crashlytics-to-issue`
 - 자연어: "Crashlytics 이슈를 GitHub에 등록해줘" / "open crashes를 이슈로 올려"
 
-첫 실행 시 `config.json`이 빈 상태이므로 Step 2가 셋업 대화로 진입한다:
+첫 실행 시 현재 프로젝트의 `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`이 없거나 빈 상태이므로 Step 2가 셋업 대화로 진입한다:
 
 1. **Firebase project 선택** — `firebase_list_projects` 결과에서 하나 선택.
 2. **Firebase app 선택** — `firebase_list_apps` 결과에서 조회 대상 앱(들)을 선택 (iOS/Android 복수 가능).
 3. **GitHub repo 확인** — `git remote get-url origin`에서 자동 파싱. 파싱 실패 시 직접 입력.
 
-입력값은 `config.json`에 저장되어 다음 실행부터는 생략된다.
+입력값은 해당 프로젝트의 `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`에 저장되어 다음 실행부터는 같은 프로젝트에서만 셋업이 생략된다. 다른 프로젝트로 이동하면 그 프로젝트의 별도 PROJECT_KEY 디렉토리에서 새 셋업이 트리거된다.
 
 ## Customization
 
@@ -126,14 +114,18 @@ done
 
 ## Verification Checklist
 
-배포 전에 다음을 통과해야 한다:
+배포 전에 다음을 통과해야 한다.
+
+### 작성자 측: 번들 템플릿 검증
 
 ```bash
-# 1. 구조
-ls <install_path>/crashlytics-to-issue/
+PLUGIN_ROOT=<my-skills 플러그인 루트>
+
+# 1. skill 디렉토리 구조 확인
+ls "$PLUGIN_ROOT/skills/crashlytics-to-issue/"
 # expect: SKILL.md, config.json, references/
 
-find <install_path>/crashlytics-to-issue/references/ -type f
+find "$PLUGIN_ROOT/skills/crashlytics-to-issue/references/" -type f
 # expect: installation.md, issue-template.md, note-schema.md,
 #         severity-rules.md, module-inference.md, filter-rules.md
 
@@ -141,10 +133,30 @@ find <install_path>/crashlytics-to-issue/references/ -type f
 # 자기 조직의 브랜딩/ID/언어별 토큰을 아래 패턴에 채워 넣고 실행.
 # 결과가 0건이면 누출 없음.
 grep -iE "<your-company>|<your-service>|<your-firebase-project-id>|<your-lang-token>" \
-  <install_path>/crashlytics-to-issue/SKILL.md \
-  <install_path>/crashlytics-to-issue/references/*.md
+  "$PLUGIN_ROOT/skills/crashlytics-to-issue/SKILL.md" \
+  "$PLUGIN_ROOT/skills/crashlytics-to-issue/references/"*.md
 
-# 3. config.json 초기값 확인
-python3 -c "import json; c=json.load(open('<install_path>/crashlytics-to-issue/config.json')); \
+# 3. 번들 기본값 템플릿(${CLAUDE_SKILL_DIR}/config.json) 초기값 확인
+python3 -c "import json; c=json.load(open('$PLUGIN_ROOT/skills/crashlytics-to-issue/config.json')); \
   assert c['firebase']['project_id'] is None and c['firebase']['apps']==[]; print('OK')"
+```
+
+### 사용자 측: 첫 셋업 후 영구 저장소 확인 (런타임)
+
+```bash
+# 현재 프로젝트의 PROJECT_KEY 확인
+PROJECT_KEY=$(git remote get-url origin 2>/dev/null \
+  | sed -E 's|^https?://[^/]+/||; s|^git@[^:]+:||; s|\.git$||; s|/|-|g' \
+  | tr '[:upper:]' '[:lower:]')
+echo "PROJECT_KEY=$PROJECT_KEY"
+
+# 첫 셋업이 한 번이라도 완료된 뒤에 생성된다 (현재 프로젝트만)
+ls ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
+
+# 셋업 결과가 반영됐는지 확인 — 셋업 후 project_id·repo·apps가 채워져 있어야 함
+jq '.firebase.project_id, .firebase.apps, .github.repo' \
+  ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
+
+# 모든 프로젝트 셋업 목록 확인 (다중 프로젝트 사용 시)
+ls ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/
 ```

@@ -73,7 +73,7 @@ Note on row D: `blocker` requires both `impacted_users_min=1000` AND `event_coun
 
 ## Customization
 
-Override in your `config.json`:
+Override in your user instance config (`${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`). Do **not** edit the bundled template at `${CLAUDE_SKILL_DIR}/config.json` — it is replaced on every plugin update.
 
 ```json
 {

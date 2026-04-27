@@ -15,67 +15,41 @@
   ```
 - **GitHub repo의 issue label** — 본 스킬은 `config.github.issue_label`에 지정된 단일 라벨로 미처리 이슈를 조회한다. 라벨이 미등록 상태면 `gh label create "<label>" --repo "<owner>/<repo>"`로 사전 등록.
 
-## Install Locations
+## Installation
 
-두 가지 권장 위치가 있다. 상황에 맞게 선택한다.
+이 skill은 `my-skills` 플러그인의 일부로 배포된다. standalone 복사·설치(`~/.claude/skills/<name>/`)는 더 이상 지원하지 않으며, 플러그인 활성화를 통해서만 사용한다.
 
-### A. User-global (개인 개발자 기본값)
+플러그인 자체 설치·로드 방법은 [my-skills 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 즉시 반영할 수 있다.
 
-```
-~/.claude/skills/crashlytics-issue-to-fix/
-```
+## Storage Layout
 
-- 모든 프로젝트에서 같은 스킬을 사용.
-- 단일 `config.json`을 여러 프로젝트가 공유 — 한 사람이 여러 Firebase 프로젝트·GitHub 레포를 오가는 경우 `--reconfigure`로 매번 전환.
+플러그인이 활성화되면 두 종류의 config 파일이 사용된다. 두 경로의 책임은 **읽기 전용 기본값**과 **쓰기 가능한 사용자 인스턴스**로 명확히 분리되어 있다.
 
-### B. Project-local (팀 배포 기본값)
+| 경로 | 역할 | 보존 여부 | 누가 쓰나 |
+|------|------|----------|----------|
+| `${CLAUDE_SKILL_DIR}/config.json` | 작성자가 번들한 기본값 템플릿 | 플러그인 업데이트 시 새 버전으로 교체 | 작성자(릴리스 시) |
+| `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json` | 사용자별 + 프로젝트별 셋업 결과 | 플러그인 업데이트 후에도 보존 | skill의 셋업 단계 |
 
-```
-<your-repo>/.claude/skills/crashlytics-issue-to-fix/
-```
+`${CLAUDE_PLUGIN_DATA}`는 `~/.claude/plugins/data/<plugin-id>/`로 해석되며, 플러그인을 마지막 스코프에서 제거할 때(또는 `--keep-data` 없이 uninstall)까지 유지된다.
 
-- `config.json`이 저장소에 커밋되어 팀원 전원이 동일한 설정으로 동작.
-- 팀마다 별도 Firebase 프로젝트·GitHub 레포·라벨 컨벤션을 쓰는 경우에 적합.
+`<PROJECT_KEY>`는 호출 시점에 다음 우선순위로 자동 추출된다:
 
-## Installation Steps
+1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-claude-plugins`)
+2. 실패 시 `git rev-parse --show-toplevel`의 basename
+3. 둘 다 실패 시 `pwd`의 basename
 
-1. 이 스킬 디렉토리 전체를 원하는 위치에 복사:
-
-   **macOS / Linux (bash/zsh)**:
-
-   ```bash
-   # user-global 예시
-   cp -r crashlytics-issue-to-fix ~/.claude/skills/
-
-   # project-local 예시
-   cp -r crashlytics-issue-to-fix <your-repo>/.claude/skills/
-   ```
-
-   **Windows (PowerShell)**:
-
-   ```powershell
-   # user-global 예시
-   Copy-Item -Recurse crashlytics-issue-to-fix $HOME\.claude\skills\
-
-   # project-local 예시
-   Copy-Item -Recurse crashlytics-issue-to-fix <your-repo>\.claude\skills\
-   ```
-
-   > Windows에서는 경로 구분자가 `\`이지만 `git`/`gh` 내부 명령은 cross-platform으로 처리된다. 본 스킬이 SKILL.md에서 사용하는 워크트리 경로 표기(`<repo-root>/.worktrees/...`)도 git이 자동 정규화하므로 OS와 무관하게 동작한다.
-
-2. 복사된 디렉토리에 `SKILL.md`, `config.json`, `references/`가 모두 있는지 확인.
-3. 클라이언트를 재시작하거나 skill refresh를 수행해 스킬 목록에 반영.
+이 키 분리 덕분에 동일 사용자가 여러 프로젝트(예: 회사 repo / 개인 repo / 오픈소스 fork)를 오갈 때 각 프로젝트의 Firebase·repo·라벨 셋업이 서로 덮어쓰지 않고 독립 보존된다. 첫 실행 시 해당 프로젝트의 영구 저장소가 비어 있으면 SKILL.md의 Step 2가 자동으로 번들 기본값을 복사한 뒤 대화형 셋업을 시작한다.
 
 ## First Run (대화형 셋업)
 
-스킬을 호출하면 `config.json`이 빈 상태에서는 자동으로 대화형 셋업으로 진입한다. 셋업 단계의 정확한 순서·저장 필드는 SKILL.md의 **Step 2**가 단일 진실원이다.
+스킬을 호출하면 현재 프로젝트의 `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`이 없거나 핵심 필드가 빈 상태에서는 자동으로 대화형 셋업으로 진입한다. PROJECT_KEY 추출 규칙과 셋업 단계의 정확한 순서·저장 필드는 SKILL.md의 **Step 2**가 단일 진실원이다.
 
 호출 방법:
 
-- 슬래시 커맨드: `/crashlytics-issue-to-fix` (인자 없음 → 라벨 기반 일괄 조회), `/crashlytics-issue-to-fix 123,456` (특정 이슈만)
+- 슬래시 커맨드: `/my-skills:crashlytics-issue-to-fix` (인자 없음 → 라벨 기반 일괄 조회), `/my-skills:crashlytics-issue-to-fix 123,456` (특정 이슈만)
 - 자연어 예시: "fix crashlytics issue #123", "이슈 #123 자동 수정해줘", "crashlytics 라벨 이슈 처리해줘"
 
-입력값은 `config.json`에 저장되어 다음 실행부터는 셋업이 생략된다. 설정을 다시 받고 싶으면 `--reconfigure`.
+입력값은 해당 프로젝트의 `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`에 저장되어 다음 실행부터는 같은 프로젝트에서만 셋업이 생략된다. 다른 프로젝트로 이동하면 그 프로젝트의 별도 PROJECT_KEY 디렉토리에서 새 셋업이 트리거된다. 설정을 다시 받고 싶으면 `--reconfigure`.
 
 ## Customization
 
@@ -100,7 +74,7 @@
 라벨을 추가하거나 변경하려면 두 가지 방법이 있다:
 
 1. **재셋업 (권장)**: `--reconfigure`로 호출하면 가용 라벨 다중 선택을 다시 받는다.
-2. **직접 편집**: `config.json`의 `github.pr_labels` 배열을 수동 편집. 이 경우 라벨이 실제로 사용자 레포에 등록되어 있는지는 사용자 책임이다 — 스킬은 PR 생성 시 `gh`가 거부하면 라벨 없이 재시도하고 보고서에 실패를 명시한다.
+2. **직접 편집**: 사용자 인스턴스(`${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`)의 `github.pr_labels` 배열을 수동 편집. 번들 템플릿(`${CLAUDE_SKILL_DIR}/config.json`)은 플러그인 업데이트 시 교체되므로 편집 대상이 아니다. 이 경우 라벨이 실제로 사용자 레포에 등록되어 있는지는 사용자 책임이다 — 스킬은 PR 생성 시 `gh`가 거부하면 라벨 없이 재시도하고 보고서에 실패를 명시한다.
 
 **셋업 시점에 라벨이 0건인 경우**: 사용자 레포에 등록된 라벨이 없으면 빈 배열로 저장하고 안내 메시지를 출력한다. 이후 `gh label create`로 라벨을 등록한 뒤 `--reconfigure`로 재선택할 수 있다.
 
@@ -116,7 +90,7 @@
 .worktrees/
 ```
 
-이 항목은 본 스킬을 사용하는 모든 사용자에게 공통이므로, project-local 설치라면 `.gitignore` 변경을 함께 커밋해 팀 전체에 적용한다. user-global 설치라면 각 프로젝트 진입 시 이 한 줄만 추가하면 된다.
+이 항목은 본 스킬을 사용하는 모든 사용자에게 공통이므로, 프로젝트 루트 `.gitignore`에 한 줄을 추가해 팀에 함께 커밋한다 — 워크트리 디렉토리는 main 워킹트리에 untracked로 노출되어 모든 협업자에게 동일하게 보이기 때문이다.
 
 ### 워크트리 의존성 처리 (선택 실행)
 
@@ -210,17 +184,21 @@ dart run build_runner build --delete-conflicting-outputs
 
 ## Verification Checklist
 
-배포 전 다음을 통과해야 한다:
+배포 전 다음을 통과해야 한다.
+
+### 작성자 측: 번들 템플릿 검증
 
 ```bash
-# 1. 구조
-ls <install_path>/crashlytics-issue-to-fix/
+PLUGIN_ROOT=<my-skills 플러그인 루트>
+
+# 1. skill 디렉토리 구조 확인
+ls "$PLUGIN_ROOT/skills/crashlytics-issue-to-fix/"
 # expect: SKILL.md, config.json, references/
 
-find <install_path>/crashlytics-issue-to-fix/references/ -type f
+find "$PLUGIN_ROOT/skills/crashlytics-issue-to-fix/references/" -type f
 # expect: installation.md, pr-template.md, report-template.md
 
-# 2. config.json 초기값 확인 (jq)
+# 2. 번들 기본값 템플릿(${CLAUDE_SKILL_DIR}/config.json) 초기값 확인
 jq -e '
   .firebase.project_id == null
   and (.firebase.apps | length == 0)
@@ -228,5 +206,25 @@ jq -e '
   and .github.issue_label == null
   and .github.merge_method == "squash"
   and (.github.pr_labels == null)
-' <install_path>/crashlytics-issue-to-fix/config.json && echo OK
+' "$PLUGIN_ROOT/skills/crashlytics-issue-to-fix/config.json" && echo OK
+```
+
+### 사용자 측: 첫 셋업 후 영구 저장소 확인 (런타임)
+
+```bash
+# 현재 프로젝트의 PROJECT_KEY 확인
+PROJECT_KEY=$(git remote get-url origin 2>/dev/null \
+  | sed -E 's|^https?://[^/]+/||; s|^git@[^:]+:||; s|\.git$||; s|/|-|g' \
+  | tr '[:upper:]' '[:lower:]')
+echo "PROJECT_KEY=$PROJECT_KEY"
+
+# 첫 셋업이 한 번이라도 완료된 뒤에 생성된다 (현재 프로젝트만)
+ls ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
+
+# 셋업 결과가 반영됐는지 확인 — 셋업 후 project_id·repo가 채워져 있어야 함
+jq '.firebase.project_id, .github.repo' \
+  ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
+
+# 모든 프로젝트 셋업 목록 확인 (다중 프로젝트 사용 시)
+ls ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/
 ```

@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 등록되지 않은 오류만 Issue로 자동 생성한다. 이미 등록된 오류 중 GitHub 이슈가 close된 후에 새 이벤트가 관측된 경우는 **회귀(regression)** 로 재등록한다.
 
-**배포용 범용 스킬** — 특정 서비스·회사·언어·프레임워크에 종속된 값이 이 문서와 `references/*`에 들어있지 않다. 모든 프로젝트 고유 값은 `config.json`으로 외부화한다.
+**배포용 범용 스킬** — 특정 서비스·회사·언어·프레임워크에 종속된 값이 이 문서와 `references/*`에 들어있지 않다. 모든 프로젝트 고유 값은 `config.json`으로 외부화한다. 사용자별 인스턴스는 `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`(플러그인 업데이트 후에도 보존되는 영구 저장소, **프로젝트별 격리**)에 위치하고, 작성자가 제공하는 기본값 템플릿은 번들된 `${CLAUDE_SKILL_DIR}/config.json`이다. `<PROJECT_KEY>`는 호출 시점에 git remote URL에서 `<owner>-<repo>` 형태로 자동 추출되어, 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 셋업이 서로 충돌하지 않는다(추출 로직은 Step 2 참고).
 
 ## Prerequisites
 
@@ -31,7 +31,15 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 ### Step 2. 프로젝트·앱 선택 (첫 실행 + 재설정)
 
-스킬 디렉토리의 `config.json`을 읽는다. 다음 중 하나라도 해당하면 대화형 셋업으로 진입, 그렇지 않으면 바로 Step 3로 건너뛴다.
+**저장 경로 결정 — PROJECT_KEY 추출**: 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 Firebase·repo 셋업이 독립 보존되도록, config는 프로젝트별 서브디렉토리에 저장한다. PROJECT_KEY는 다음 우선순위로 추출하며, 모든 결과는 lowercase로 정규화하고 영숫자·하이픈 외 문자를 `-`로 치환한 뒤 연속 하이픈을 1개로 압축한다.
+
+1. `git remote get-url origin`이 성공하면 URL을 파싱해 `<owner>-<repo>` 형태로 변환. 예: `https://github.com/cyb9701/claude-plugins.git` 또는 `git@github.com:cyb9701/claude-plugins.git` → `cyb9701-claude-plugins`
+2. 실패 시 `git rev-parse --show-toplevel`의 basename 정규화 (예: `/Users/cyb/dev/myapp` → `myapp`)
+3. 둘 다 실패 시 `pwd`의 basename 정규화
+
+**저장 경로**: `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`
+
+해당 경로의 파일을 읽는다. 파일이 없으면 번들된 기본값 `${CLAUDE_SKILL_DIR}/config.json`을 복사해 초기화한다 — 플러그인 업데이트 시 `${CLAUDE_PLUGIN_DATA}`만 보존되며, 프로젝트별로 격리된 셋업이 유지된다. 다음 중 하나라도 해당하면 대화형 셋업으로 진입, 그렇지 않으면 바로 Step 3로 건너뛴다.
 
 - `firebase.project_id == null`
 - `firebase.apps`가 빈 배열
@@ -153,8 +161,9 @@ gh issue create \
 
 ## 설계 원칙 요약
 
+- **영구 설정 분리 + 프로젝트 격리**: 사용자 셋업 결과는 `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`에, 작성자 기본값은 `${CLAUDE_SKILL_DIR}/config.json`(번들 템플릿)에 분리한다. PROJECT_KEY는 git remote URL의 `<owner>-<repo>` 형태로 자동 추출되므로 동일 사용자가 여러 프로젝트를 오갈 때 각 프로젝트의 Firebase·repo 설정이 자기 디렉토리에 격리되어 서로 덮어쓰지 않는다. 플러그인 업데이트 시 `${CLAUDE_PLUGIN_DATA}`는 보존되고 `${CLAUDE_SKILL_DIR}`는 새 버전으로 교체되므로, 사용자 셋업이 살아남으면서 새 사용자는 검증된 기본값으로 시작한다.
 - **하드코딩 제로**: 서비스명·프로젝트 ID·앱 ID·레포지토리·언어별 패턴은 전부 `config.json`으로 외부화.
 - **공개 계약**: Crashlytics 메모는 1줄 포인터 포맷으로 공개 계약돼 있다(상세 `references/note-schema.md`). 다른 도구가 읽어서 "이 크래시가 연결된 GitHub 이슈"를 한 줄 정규식으로 추출할 수 있다.
-- **점진적 설정**: 첫 실행은 AskUserQuestion으로 최소 값만 받고, 고급 튜닝(`severity_thresholds` 등)은 나중에 `config.json` 직접 편집으로 수행.
+- **점진적 설정**: 첫 실행은 AskUserQuestion으로 최소 값만 받고, 고급 튜닝(`severity_thresholds` 등)은 나중에 사용자 인스턴스(`${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`)를 직접 편집해 수행. 번들 템플릿(`${CLAUDE_SKILL_DIR}/config.json`)은 플러그인 업데이트 시 교체되므로 편집 대상이 아니다.
 - **부분 실패 내성**: 재시도 + 중복 생성 방지 + 메모 실패가 이슈 생성을 막지 않음.
 - **앱 수 독립 latency**: 서브에이전트 병렬 디스패치로 조회 단계는 앱 수와 무관하게 일정한 wall-clock에 수렴.

@@ -1,0 +1,44 @@
+{
+  "$schema_version": 2,
+  "last_updated_at": null,
+  "firebase": {
+    "project_id": null,
+    "apps": []
+  },
+  "github": {
+    "repo": null,
+    "default_labels": ["source:crashlytics"],
+    "issue_type": "Bug"
+  },
+  "query": {
+    "lookback_days": 3,
+    "page_size": 50,
+    "report": "TOP_ISSUES"
+  },
+  "severity_thresholds": {
+    "blocker": {
+      "impacted_users_min": 1000,
+      "event_count_min": 10000,
+      "error_types": ["FATAL"]
+    },
+    "critical": {
+      "impacted_users_min": 100,
+      "event_count_min": 1000,
+      "error_types": ["FATAL", "ANR"]
+    },
+    "major": {}
+  },
+  "regression": {
+    "grace_hours": 1
+  },
+  "module": {
+    "language": "ko"
+  },
+  "concurrency": {
+    "max_parallel_apps": 5
+  },
+  "retry": {
+    "max_attempts": 3,
+    "backoff_seconds": [2, 5, 10]
+  }
+}

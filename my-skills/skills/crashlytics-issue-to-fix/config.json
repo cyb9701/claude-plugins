@@ -1,0 +1,12 @@
+{
+  "firebase": {
+    "project_id": null,
+    "apps": []
+  },
+  "github": {
+    "repo": null,
+    "issue_label": null,
+    "pr_labels": null,
+    "merge_method": "squash"
+  }
+}

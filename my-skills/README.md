@@ -90,9 +90,9 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 
 The two Crashlytics skills persist per-user **and per-project** setup results (Firebase project ID, GitHub repo, label selections, etc.) in a separate location from the bundled defaults. Plugin updates replace the bundled defaults but never overwrite user data, and each project gets its own isolated subdirectory so multiple projects on the same machine never overwrite each other.
 
-| Path                                                                  | Role                                                          | Survives update?   |
-| --------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------ |
-| `${CLAUDE_SKILL_DIR}/config.json`                                     | Bundled defaults template (severity thresholds, retry policy) | Replaced on update |
+| Path                                                                    | Role                                                          | Survives update?   |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------ |
+| `${CLAUDE_SKILL_DIR}/config.json`                                       | Bundled defaults template (severity thresholds, retry policy) | Replaced on update |
 | `${CLAUDE_PLUGIN_DATA}/<skill-name>/projects/<PROJECT_KEY>/config.json` | Per-user + per-project setup results                          | Preserved          |
 
 `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/my-skills*/` (suffix varies by marketplace ID).

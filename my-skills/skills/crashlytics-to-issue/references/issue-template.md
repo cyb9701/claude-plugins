@@ -8,13 +8,25 @@
 [Firebase Crashlytics] {module} - {summary}
 ```
 
+### Ownership
+
+**제목 조립은 메인 세션의 책임이다.** 서브에이전트는 `module`과 `title_summary` raw 필드만 반환하고, 메인 세션이 `SKILL.md` Step 4 시작점에서 다음 한 줄로 직접 조립한다:
+
+```bash
+MODULE="${module:-${error_type}}"
+TSUMMARY="${title_summary:-${display_name:0:80}}"
+RENDERED_TITLE="[Firebase Crashlytics] ${MODULE} - ${TSUMMARY}"
+```
+
+서브에이전트(LLM)가 `rendered_title`을 만들면 prefix 누락·변형 가능성이 있으나, 메인이 Bash 변수로 강제 prepend하면 어떤 경우에도 `[Firebase Crashlytics] ` prefix가 보장된다. fallback(`module → error_type`, `title_summary → display_name 80자`)으로 raw 필드가 비어도 깨지지 않는다.
+
 ### Tokens
 
 | Token                    | Value                                                                                                                                     |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `[Firebase Crashlytics]` | 리터럴 프리픽스. `gh issue list --search "[Firebase Crashlytics] in:title"`처럼 라벨 필터 없이도 자동 등록분만 좁힐 수 있는 키.           |
 | `{module}`               | LLM이 스택 트레이스·`display_name`·`error_type`에서 추론한 짧은 현장 언어 단어 (예: `광고`, `출금`, `Home`). 상세: `module-inference.md`. |
-| `{summary}`              | Crashlytics `display_name`에서 추출한 1줄 오류 요약. 80자 초과 시 truncate.                                                               |
+| `{summary}`              | Crashlytics `display_name`에서 추출한 1줄 오류 요약. 80자 초과 시 truncate. 서브에이전트가 `title_summary` 필드로 반환.                   |
 
 ### Examples
 
@@ -30,6 +42,8 @@
 
 이 템플릿을 그대로 사용한다. 필드는 영문 키로 고정(언어 중립), HTML 주석 블록은 머신 파싱용 fallback이다.
 
+본문은 **Firebase Crashlytics에서 조회 가능한 모든 정보를 한 페이지에 압축**해 디버거가 콘솔로 이동하지 않고도 1차 트리아지를 끝낼 수 있게 한다. 데이터가 비어 있는 섹션(Variants / Custom Keys / Breadcrumbs / Logs)은 **렌더하지 않는다** — 빈 표가 본문에 등장해 노이즈가 되는 것을 방지한다.
+
 ````markdown
 ## Crashlytics Report
 
@@ -38,15 +52,19 @@
 | Crashlytics Issue ID           | `{issue_id}`                          |
 | App                            | {app_display_name}                    |
 | Platform                       | {platform}                            |
+| Bundle ID / Package            | `{bundle_id_or_package}`              |
 | Module                         | {module}                              |
 | Error Type                     | {error_type}                          |
 | Severity                       | {severity}                            |
 | First Seen                     | {first_seen_at}                       |
 | Last Seen                      | {last_seen_at}                        |
+| Days Since First Seen          | {days_since_first_seen}               |
 | Events (last {lookback_days}d) | {event_count}                         |
 | Impacted Users                 | {impacted_users_count}                |
+| Crashes per Day (avg)          | {crashes_per_day_avg}                 |
 | App Versions                   | {min_app_version} ~ {max_app_version} |
 | OS Versions                    | {min_os_version} ~ {max_os_version}   |
+| First Frame                    | `{first_frame}`                       |
 
 ### Summary
 
@@ -69,6 +87,20 @@
 | {device_1} | {count_1} |
 | {device_2} | {count_2} |
 
+### Top OS Versions
+
+| OS Version     | Events    |
+| -------------- | --------- |
+| {os_version_1} | {count_1} |
+| {os_version_2} | {count_2} |
+
+### Top App Versions
+
+| App Version     | Events    |
+| --------------- | --------- |
+| {app_version_1} | {count_1} |
+| {app_version_2} | {count_2} |
+
 ### Top Regions
 
 | Region     | Events    |
@@ -76,9 +108,53 @@
 | {region_1} | {count_1} |
 | {region_2} | {count_2} |
 
+### Variants
+
+<!-- 여러 스택 변형이 있을 때만 등장. has_variants == false면 섹션 자체 생략. -->
+
+| Variant ID    | Events    | First Frame |
+| ------------- | --------- | ----------- |
+| {variant_id1} | {count_1} | `{frame_1}` |
+| {variant_id2} | {count_2} | `{frame_2}` |
+
+### Custom Keys
+
+<!-- Crashlytics SDK가 기록한 key/value. has_custom_keys == false면 섹션 생략. -->
+
+| Key     | Value     |
+| ------- | --------- |
+| {key_1} | {value_1} |
+| {key_2} | {value_2} |
+
+### Breadcrumbs
+
+<!-- has_breadcrumbs == false면 섹션 생략. collapsed로 처리해 이슈 리스트 프리뷰 오염 방지. -->
+
+<details><summary>Expand</summary>
+
+```
+[2026-04-28 09:12:01] INFO  - tapped withdraw button
+[2026-04-28 09:12:03] DEBUG - fetched balance=12345
+...
+```
+
+</details>
+
+### Logs
+
+<!-- Crashlytics SDK 로그. has_logs == false면 섹션 생략. collapsed. -->
+
+<details><summary>Expand</summary>
+
+```
+{logs_sample}
+```
+
+</details>
+
 ### Links
 
-- [Crashlytics Console]({console_url})
+- [Firebase Crashlytics Issue](https://console.firebase.google.com/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id})
 
 <!-- crashlytics-to-issue meta -->
 <!-- crashlytics_issue_id: {issue_id} -->
@@ -86,19 +162,99 @@
 <!-- platform: {platform} -->
 ````
 
+### 필드 출처와 계산식
+
+| Field                   | 출처 / 계산                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `bundle_id_or_package`  | iOS는 `crashlytics_get_issue` 응답의 `bundle_id`, Android는 `package_name`           |
+| `first_frame`           | `stack_trace[0]`의 한 줄 요약 (function/method + offset)                             |
+| `days_since_first_seen` | `(now - first_seen_at).days` (서브에이전트 계산)                                     |
+| `crashes_per_day_avg`   | `event_count / max(days_since_first_seen, 1)` 소수점 1자리. lookback 범위 평균.      |
+| Top OS / App Versions   | `crashlytics_get_report(report=TOP_ISSUES)` 응답의 분포 데이터에서 events 기준 상위. |
+| Variants                | `crashlytics_get_issue` 응답의 `variants[]`. 비어 있으면 섹션 생략.                  |
+| Custom Keys             | `crashlytics_list_events` 샘플 이벤트의 `custom_keys`. 비어 있으면 섹션 생략.        |
+| Breadcrumbs / Logs      | 동일 샘플 이벤트의 `breadcrumbs[]`/`logs[]`. 비어 있으면 섹션 생략.                  |
+
+각 분포 표·breadcrumbs·logs의 행 수는 `config.json`의 `issue_body.max_*` 상한에 따라 잘라낸다.
+
+### 단일 링크 정책
+
+본문 링크는 **Firebase Crashlytics Issue 직접 링크 하나만** 둔다. 콘솔의 이슈 페이지 한 곳에서 Events / Breadcrumbs / Signals / Stack / Logs를 모두 볼 수 있으므로 다중 링크는 노이즈가 된다. 링크 URL 패턴:
+
+```
+https://console.firebase.google.com/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id}
+```
+
+서브에이전트가 본문 렌더 시 직접 조립한다. 메인 세션은 가공하지 않는다.
+
 ## Unified Issues (iOS + Android)
 
 같은 `display_name`이 여러 앱/플랫폼에 나오면 단일 GitHub 이슈로 통합.
 
+### 메타 표 처리
+
 - **Crashlytics Issue ID** 행은 앱마다 한 줄씩 반복.
 - **App** 행은 멀티라인 또는 콤마 구분.
 - **Platform**은 `iOS+Android` (알파벳 순).
-- Event count, impacted users는 **합산**.
-- **`App Versions` 행은 반드시 한 줄로 union된 `{global_min} ~ {global_max}`**. `global_min = min(앱별 min)`, `global_max = max(앱별 max)`. 멀티라인으로 분기하면 회귀 정규식(`^\|\s*App Versions\s*\|\s*(\S+)\s*~\s*(\S+)\s*\|`)이 매칭 실패해 회귀 감지가 깨진다. 앱별 분기 정보가 필요하면 본문 하단에 별도 `### App-specific Versions` 보조 표를 추가.
+- **Bundle ID / Package**: 앱별 콤마 구분 또는 멀티라인 (`com.example.ios, com.example.android`).
+- **Module**: 모듈명이 동일하므로 첫 번째 앱 기준 그대로.
+- **Error Type**: 동일하므로 그대로. 다르면 `iOS:FATAL / Android:ANR` 형태.
+- **Severity**: 앱별 severity 중 가장 높은 등급(blocker > critical > major).
+- **First Seen**: `min(앱별 first_seen_at)`.
+- **Last Seen**: `max(앱별 last_seen_at)`.
+- **Days Since First Seen**: `min(앱별 first_seen_at)` 기준 재계산.
+- **Events / Impacted Users**: **합산**.
+- **Crashes per Day (avg)**: `total_event_count / max(days_since_first_seen, 1)`로 재계산.
+- **`App Versions` 행은 반드시 한 줄로 union된 `{global_min} ~ {global_max}`**. `global_min = min(앱별 min)`, `global_max = max(앱별 max)`. 멀티라인으로 분기하면 회귀 정규식(`^\|\s*App Versions\s*\|\s*(\S+)\s*~\s*(\S+)\s*\|`)이 매칭 실패해 회귀 감지가 깨진다.
 - **`OS Versions` 행도 동일** — union된 `min ~ max`. 회귀 판정엔 영향 없지만 일관성 유지.
-- 앱별 `<!-- crashlytics_issue_id: ... -->` 라인이 한 본문에 여러 줄 존재할 수 있다.
+- **First Frame**: 동일 stack 시 그대로, 다르면 `iOS: ..., Android: ...` 형태.
 
-회귀 판정의 단일 진실 원천은 "이 닫힌 이슈에서 가장 높았던 max_app_version" — 통합 이슈도 `max(앱별 max)` 한 점만 알면 충분하다.
+### 분포 섹션 처리
+
+`Top Devices` / `Top OS Versions` / `Top App Versions` / `Top Regions` / `Variants` 섹션은 앱별로 데이터 분리:
+
+```markdown
+### Top Devices (iOS)
+
+| Device | Events |
+...
+
+### Top Devices (Android)
+
+| Device | Events |
+...
+```
+
+Custom Keys / Breadcrumbs / Logs 도 동일 — `### Custom Keys (iOS)` / `### Custom Keys (Android)`로 분기. 데이터가 한쪽 앱에만 있으면 해당 앱 섹션만 등장.
+
+이 분기 표시는 회귀 판정 정규식과 무관하므로 자유롭게 분기해도 안전하다. 회귀 판정의 단일 진실 원천은 한 줄 union된 `App Versions` 행 하나뿐.
+
+### 메타 주석 처리
+
+앱별 `<!-- crashlytics_issue_id: ... -->`, `<!-- app_id: ... -->`, `<!-- platform: ... -->` 라인이 한 본문에 **여러 줄** 존재 가능. 예:
+
+```
+<!-- crashlytics-to-issue meta -->
+<!-- crashlytics_issue_id: ios_issue_abc -->
+<!-- app_id: 1:1234:ios:abc -->
+<!-- platform: ios -->
+<!-- crashlytics_issue_id: android_issue_xyz -->
+<!-- app_id: 1:1234:android:xyz -->
+<!-- platform: android -->
+```
+
+멱등 검색은 `gh issue list --search "crashlytics_issue_id: <id> in:body"`로 어느 한 줄만 매칭되어도 동일 이슈로 인식되므로, 통합 이슈도 안전하게 멱등 처리된다.
+
+### 링크 처리
+
+각 앱별 Crashlytics 이슈 직접 링크를 **모두 나열**:
+
+```markdown
+### Links
+
+- [Firebase Crashlytics Issue (iOS)](https://console.firebase.google.com/project/{project_id}/crashlytics/app/ios:{ios_bundle_id}/issues/{ios_issue_id})
+- [Firebase Crashlytics Issue (Android)](https://console.firebase.google.com/project/{project_id}/crashlytics/app/android:{android_package}/issues/{android_issue_id})
+```
 
 ## Regression Rendering
 

@@ -32,6 +32,19 @@
   "module": {
     "language": "ko"
   },
+  "issue_body": {
+    "include_breadcrumbs": true,
+    "include_custom_keys": true,
+    "include_logs": true,
+    "include_variants": true,
+    "max_top_devices": 5,
+    "max_top_os_versions": 5,
+    "max_top_app_versions": 5,
+    "max_top_regions": 5,
+    "max_top_variants": 5,
+    "max_breadcrumbs": 50,
+    "max_logs": 50
+  },
   "concurrency": {
     "max_parallel_apps": 5
   },

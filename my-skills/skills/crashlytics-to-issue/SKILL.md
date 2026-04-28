@@ -66,7 +66,7 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 메인 세션은 조회 로직을 직접 실행하지 않고 결과 수집만 한다 — 앱 수에 비례해 latency가 늘지 않고 context 사용량도 절약된다.
 
-서브에이전트는 단순 fetcher가 아니라 **조회+모듈 추론+심각도 계산+본문 렌더**까지 수행한다. full stack trace와 raw notes는 서브에이전트 컨텍스트에만 남고, 메인은 `{rendered_title, rendered_body, module, severity, tracking_note_number, ...}` 형태의 압축 payload만 받는다.
+서브에이전트는 단순 fetcher가 아니라 **조회+모듈 추론+심각도 계산+본문 렌더**까지 수행한다. full stack trace·variants·custom*keys·breadcrumbs·logs·top*_ 분포 데이터는 서브에이전트 컨텍스트에만 남고, 메인은 `{rendered*body, module, title_summary, severity, tracking_note_number, has*_, ...}` 형태의 압축 payload만 받는다. **`rendered_title`은 더 이상 반환하지 않는다** — 제목 prefix 일관성 보장을 위해 메인 세션이 Step 4에서 직접 조립한다(상세: `references/issue-template.md#Ownership`).
 
 프롬프트 템플릿·반환 JSON 스키마·통합/회귀 시 body 재가공 규칙은 `references/subagent-contract.md`에 있다.
 
@@ -80,19 +80,29 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 ### Step 4. GitHub Issue 생성 + Crashlytics 메모 기록
 
-등록 대상마다 아래를 수행한다. 제목·본문·모듈·심각도는 서브에이전트가 이미 렌더해 `rendered_title`, `rendered_body`, `module`, `severity`로 넘겨 준 상태다. 메인 세션은 통합·회귀일 때만 body를 재가공한다.
+등록 대상마다 아래를 수행한다. 본문·모듈·심각도·제목용 raw 필드는 서브에이전트가 이미 처리해 `rendered_body`, `module`, `title_summary`, `severity`로 넘겨 준 상태다. **제목 자체는 메인 세션이 직접 조립한다** — LLM 서브에이전트가 만든 `rendered_title`에 의존하면 prefix 누락·변형 가능성이 있어, Bash 변수 한 줄로 강제 prepend한다.
 
-1. **통합 이슈 재가공**: 앱 간 통합 대상이면 앱별 `rendered_body`를 합쳐 `event_count`·`impacted_users_count`·버전 범위를 집계·유니온. 메타 주석 블록은 앱별로 append. 규칙은 `references/issue-template.md`의 **Unified Issues**.
+1. **제목 조립 (메인 세션 책임)**: 다음 한 줄로 항상 동일한 형식을 보장.
 
-2. **회귀 prepend**: `REGISTER(regression)`이면 `rendered_body` 상단에 회귀 경고 블록을 prepend. 필드는 분류 결과 `context`에서 주입 (`references/issue-template.md`의 **Regression Rendering**).
+   ```bash
+   MODULE="${module:-${error_type}}"
+   TSUMMARY="${title_summary:-${display_name:0:80}}"
+   RENDERED_TITLE="[Firebase Crashlytics] ${MODULE} - ${TSUMMARY}"
+   ```
 
-3. **라벨 구성**: `default_labels` + `os:{platform}` + `severity:{severity}` + 회귀면 `state:regression`. 통합 이슈는 `os:ios`+`os:android` 양쪽 부여. 사전 등록 필요 라벨 목록은 `references/issue-template.md`의 **Labels**.
+   fallback(`module → error_type`, `title_summary → display_name 80자`)으로 raw 필드가 비어도 깨지지 않으며, **어떤 경우에도 `[Firebase Crashlytics] ` prefix는 보장**된다.
 
-4. **`gh api` REST 호출** (한 어시스턴트 턴 내 다중 Bash tool_use). `gh issue create`는 type 등 일부 필드 한계가 있어 REST 엔드포인트를 직접 호출한다. **⚠️ 보안 핵심: placeholder는 절대 텍스트 치환으로 명령에 끼워 넣지 않는다 — bash 변수로만 통과시켜 `gh`의 `-f`/`-F` form 인자에 넘긴다.** 외부 입력(Crashlytics display_name·stack_trace 등)의 따옴표·`$(...)` 등 shell 메타문자를 데이터로만 보존하기 위함이다. **완성된 Bash 패턴은 `references/issue-template.md`의 "Safe Issue Creation Call"** 참조. 메인 세션은 환경 변수(`RENDERED_TITLE`, `RENDERED_BODY`, `REPO`, `PLATFORM`, `SEVERITY`, `IS_REGRESSION`, `IS_UNIFIED`)만 채워 그대로 실행한다.
+2. **통합 이슈 재가공**: 앱 간 통합 대상이면 앱별 `rendered_body`를 합쳐 `event_count`·`impacted_users_count`·버전 범위를 집계·유니온하고, `Top Devices`/`Top OS Versions`/`Top App Versions`/`Top Regions`/`Variants`/`Custom Keys`/`Breadcrumbs`/`Logs` 섹션은 앱별 분기로 표기. 메타 주석 블록은 앱별로 append. 규칙은 `references/issue-template.md`의 **Unified Issues**.
 
-5. 호출 결과로 얻은 `ISSUE_URL`·`ISSUE_NUMBER`를 다음 단계에 전달.
+3. **회귀 prepend**: `REGISTER(regression)`이면 `rendered_body` 상단에 회귀 경고 블록을 prepend. 필드는 분류 결과 `context`에서 주입 (`references/issue-template.md`의 **Regression Rendering**).
 
-6. **`mcp__firebase__crashlytics_create_note` 앱별 병렬 발행**: 통합 이슈는 앱 수만큼 발행. 메모 본문은 `references/note-schema.md`의 1줄 포인터 포맷: `[crashlytics-to-issue] #<issue_number> <issue_url>`. 회귀 재등록은 새 이슈 번호로 새 메모를 append(과거 메모 보존).
+4. **라벨 구성**: `default_labels` + `os:{platform}` + `severity:{severity}` + 회귀면 `state:regression`. 통합 이슈는 `os:ios`+`os:android` 양쪽 부여. 사전 등록 필요 라벨 목록은 `references/issue-template.md`의 **Labels**.
+
+5. **`gh api` REST 호출** (한 어시스턴트 턴 내 다중 Bash tool_use). `gh issue create`는 type 등 일부 필드 한계가 있어 REST 엔드포인트를 직접 호출한다. **⚠️ 보안 핵심: placeholder는 절대 텍스트 치환으로 명령에 끼워 넣지 않는다 — bash 변수로만 통과시켜 `gh`의 `-f`/`-F` form 인자에 넘긴다.** 외부 입력(Crashlytics display_name·stack_trace 등)의 따옴표·`$(...)` 등 shell 메타문자를 데이터로만 보존하기 위함이다. **완성된 Bash 패턴은 `references/issue-template.md`의 "Safe Issue Creation Call"** 참조. 메인 세션은 환경 변수(`RENDERED_TITLE`, `RENDERED_BODY`, `REPO`, `PLATFORM`, `SEVERITY`, `IS_REGRESSION`, `IS_UNIFIED`)만 채워 그대로 실행한다.
+
+6. 호출 결과로 얻은 `ISSUE_URL`·`ISSUE_NUMBER`를 다음 단계에 전달.
+
+7. **`mcp__firebase__crashlytics_create_note` 앱별 병렬 발행**: 통합 이슈는 앱 수만큼 발행. 메모 본문은 `references/note-schema.md`의 1줄 포인터 포맷: `[crashlytics-to-issue] #<issue_number> <issue_url>`. 회귀 재등록은 새 이슈 번호로 새 메모를 append(과거 메모 보존).
 
 **부분 실패 복구**:
 

@@ -1,5 +1,4 @@
 {
-  "$schema_version": 2,
   "last_updated_at": null,
   "firebase": {
     "project_id": null,
@@ -7,8 +6,7 @@
   },
   "github": {
     "repo": null,
-    "default_labels": ["source:crashlytics"],
-    "issue_type": "Bug"
+    "default_labels": ["source:crashlytics"]
   },
   "query": {
     "lookback_days": 3,

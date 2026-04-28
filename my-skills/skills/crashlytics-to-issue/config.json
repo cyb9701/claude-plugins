@@ -29,7 +29,7 @@
     "major": {}
   },
   "regression": {
-    "grace_hours": 1
+    "auto_close": true
   },
   "module": {
     "language": "ko"

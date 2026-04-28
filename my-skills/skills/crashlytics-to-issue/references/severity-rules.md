@@ -110,7 +110,7 @@ You can add arbitrary level names. JSON object insertion order is preserved (by 
 
 Resulting labels: `severity:blocker`, `severity:critical`, `severity:major`, `severity:minor`.
 
-**Make sure the matching labels exist on your GitHub repo** (Settings → Labels), otherwise `gh issue create` returns 422.
+**Make sure the matching labels exist on your GitHub repo** (Settings → Labels), otherwise the issue creation call (`gh api ... -F 'labels[]=...'`) returns 422.
 
 ## When to Tune
 

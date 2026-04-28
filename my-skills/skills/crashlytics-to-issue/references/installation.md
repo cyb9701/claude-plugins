@@ -4,13 +4,15 @@
 
 - **Claude Code** (or compatible client with Skill tool support)
 - **Firebase MCP server** — `mcp__firebase__*` tool family must be accessible in your session. Verify by checking that tools like `mcp__firebase__firebase_get_environment` appear in your tool list.
-- **GitHub CLI (`gh`)** — **v2.63 이상** (Issue Type `--type` 플래그 지원). 인증 완료. 확인:
+- **GitHub CLI (`gh`)** — 인증 완료. 확인:
   ```bash
-  gh --version | head -1   # "gh version 2.63.x" 이상이어야 함
+  gh --version
   gh auth status
   ```
+  `gh`는 gojq를 임베드해 `--jq` 플래그를 내장 제공하므로 별도 jq 바이너리는 필요하지 않다.
+- **`python3`** — config schema 마이그레이션과 이슈 생성 응답 파싱에 1회용으로 사용. 표준 라이브러리(`json`)만 쓰므로 추가 패키지 설치 불필요. macOS 12+ / 대부분 Linux 배포판 / GitHub Codespaces / GitHub Actions runner 모두 기본 탑재.
 - **대상 GitHub 레포에 아래 7개 라벨이 사전 등록되어 있어야 함.** 최초 셋업 명령은 아래 "Label Setup" 섹션 참고.
-- **대상 GitHub Organization에 Issue Types가 활성화**되어 있고 `config.github.issue_type` 값이 존재 타입이어야 함. 미활성화 조직은 `config.github.issue_type: null`로 설정해 플래그 생략 가능.
+- **대상 GitHub Organization에 Issue Types가 활성화**되어 있고 `config.github.issue_type` 값이 존재 타입이어야 적용된다. 미활성화 조직이거나 타입 미존재라도 1차 시도 실패 시 type 없이 자동 재시도되므로 **이슈 생성 자체는 보장**된다(상세: `issue-template.md`의 Issue Type 섹션). 명시적으로 끄려면 `config.github.issue_type: null`로 설정.
 
 ## Installation
 
@@ -22,10 +24,10 @@
 
 플러그인이 활성화되면 두 종류의 config 파일이 사용된다. 두 경로의 책임은 **읽기 전용 기본값**과 **쓰기 가능한 사용자 인스턴스**로 명확히 분리되어 있다.
 
-| 경로 | 역할 | 보존 여부 | 누가 쓰나 |
-|------|------|----------|----------|
-| `${CLAUDE_SKILL_DIR}/config.json` | 작성자가 번들한 기본값 템플릿(severity 임계치, retry 정책, query 기본값 등) | 플러그인 업데이트 시 새 버전으로 교체 | 작성자(릴리스 시) |
-| `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json` | 사용자별 + 프로젝트별 셋업 결과(project_id, apps[], repo) + 사용자 튜닝 값 | 플러그인 업데이트 후에도 보존 | skill의 셋업 단계 |
+| 경로                                                                            | 역할                                                                        | 보존 여부                             | 누가 쓰나         |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------- | ----------------- |
+| `${CLAUDE_SKILL_DIR}/config.json`                                               | 작성자가 번들한 기본값 템플릿(severity 임계치, retry 정책, query 기본값 등) | 플러그인 업데이트 시 새 버전으로 교체 | 작성자(릴리스 시) |
+| `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json` | 사용자별 + 프로젝트별 셋업 결과(project_id, apps[], repo) + 사용자 튜닝 값  | 플러그인 업데이트 후에도 보존         | skill의 셋업 단계 |
 
 `${CLAUDE_PLUGIN_DATA}`는 `~/.claude/plugins/data/<plugin-id>/`로 해석되며, 플러그인을 마지막 스코프에서 제거할 때(또는 `--keep-data` 없이 uninstall)까지 유지된다.
 
@@ -39,7 +41,7 @@
 
 ## Label Setup (레포 1회 초기화)
 
-이 스킬은 전부 `key:value` 네임스페이스 라벨만 사용한다. 최초 1회, 대상 GitHub 레포에 아래 7개 라벨을 등록해 둬야 이후 `gh issue create --label`이 422 없이 통과한다.
+이 스킬은 전부 `key:value` 네임스페이스 라벨만 사용한다. 최초 1회, 대상 GitHub 레포에 아래 7개 라벨을 등록해 둬야 이후 `gh api`의 이슈 생성 호출이 라벨 누락으로 422를 반환하지 않는다.
 
 ```bash
 REPO="<owner>/<repo>"  # 예: your-org/your-app
@@ -101,16 +103,16 @@ done
 
 ## Troubleshooting
 
-| 증상                                        | 원인 / 해결                                                                                                                                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Firebase MCP tools unavailable"            | MCP 설정에 Firebase 서버가 등록되지 않았다. 클라이언트의 MCP 설정을 확인.                                                                                                                             |
-| `gh: command not found`                     | GitHub CLI 미설치. https://cli.github.com/ 에서 설치.                                                                                                                                                 |
-| `gh auth status` 실패                       | `gh auth login` 실행.                                                                                                                                                                                 |
-| `firebase login` 반복 요청                  | 토큰 만료. 한 번 로그인하면 장기간 유지된다. 반복된다면 Firebase MCP 구현 버그 가능성 — 로그 확인.                                                                                                    |
-| Issue 생성 실패 422 (라벨 관련)             | 라벨이 레포에 등록되지 않음. 위 "Label Setup" 섹션의 `gh label create` 스크립트를 먼저 실행.                                                                                                          |
-| Issue 생성 실패 422 (type 관련)             | `config.github.issue_type` 값이 조직의 Issue Types에 존재하지 않거나 Issue Types가 비활성화됨. 조직 Settings → Issue Types에서 타입을 추가하거나, `issue_type: null`로 설정해 `--type` 플래그를 생략. |
-| `unknown flag: --type`                      | `gh` 버전이 2.63 미만. `brew upgrade gh`(macOS) 또는 https://cli.github.com/ 에서 업그레이드. 임시 우회로 `issue_type: null` 설정 가능.                                                               |
-| 제목의 `{module}`이 자주 `Unknown`         | 스택이 외부 SDK·프레임워크 프레임으로만 구성돼 LLM이 app feature를 추론할 수 없을 때 정상 동작. 필요하면 이슈 생성 후 GitHub에서 수동으로 제목을 편집.                                                 |
+| 증상                               | 원인 / 해결                                                                                                                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Firebase MCP tools unavailable"   | MCP 설정에 Firebase 서버가 등록되지 않았다. 클라이언트의 MCP 설정을 확인.                                                                                                                                                                   |
+| `gh: command not found`            | GitHub CLI 미설치. https://cli.github.com/ 에서 설치.                                                                                                                                                                                       |
+| `gh auth status` 실패              | `gh auth login` 실행.                                                                                                                                                                                                                       |
+| `firebase login` 반복 요청         | 토큰 만료. 한 번 로그인하면 장기간 유지된다. 반복된다면 Firebase MCP 구현 버그 가능성 — 로그 확인.                                                                                                                                          |
+| Issue 생성 실패 422 (라벨 관련)    | 라벨이 레포에 등록되지 않음. 위 "Label Setup" 섹션의 `gh label create` 스크립트를 먼저 실행.                                                                                                                                                |
+| Issue 생성 실패 422 (type 관련)    | 1차 시도가 실패하면 type 없이 자동 1회 재시도되므로 정상 경로에서는 보이지 않는다. 그래도 사용자에게 노출됐다면 stdout을 직접 확인하고 라벨·인증 등 다른 422 원인을 점검. type을 영구 비활성화하려면 `config.github.issue_type: null` 설정. |
+| `python3: command not found`       | `python3` 미설치. macOS 12+ 와 대부분의 Linux는 기본 탑재. alpine·distroless 같은 미니멀 컨테이너에서는 `apk add python3` / 베이스 이미지를 python 포함 버전으로 교체. config 마이그레이션·응답 파싱 1회용이라 표준 라이브러리만 있으면 충분. |
+| 제목의 `{module}`이 자주 `Unknown` | 스택이 외부 SDK·프레임워크 프레임으로만 구성돼 LLM이 app feature를 추론할 수 없을 때 정상 동작. 필요하면 이슈 생성 후 GitHub에서 수동으로 제목을 편집.                                                                                      |
 
 ## Verification Checklist
 
@@ -154,9 +156,76 @@ echo "PROJECT_KEY=$PROJECT_KEY"
 ls ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
 
 # 셋업 결과가 반영됐는지 확인 — 셋업 후 project_id·repo·apps가 채워져 있어야 함
-jq '.firebase.project_id, .firebase.apps, .github.repo' \
-  ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
+python3 -c "
+import json, glob
+for p in glob.glob(__import__('os').path.expanduser(
+    '~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json')):
+    c = json.load(open(p))
+    print('project_id:', c['firebase']['project_id'])
+    print('apps      :', c['firebase']['apps'])
+    print('repo      :', c['github']['repo'])
+"
 
 # 모든 프로젝트 셋업 목록 확인 (다중 프로젝트 사용 시)
 ls ~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/
 ```
+
+### Schema v1 → v2 마이그레이션 (옛 사용자만 해당)
+
+이전 버전을 사용하다가 업그레이드된 사용자는 첫 호출 시 SKILL.md Step 2의 자동 마이그레이션이 트리거된다. 의미가 바뀐 부분:
+
+| 변경      | v1                                        | v2                                               |
+| --------- | ----------------------------------------- | ------------------------------------------------ |
+| 회귀 판정 | `regression.grace_hours` (시간 grace)     | `regression.auto_close` (버전 비교 + 자동 close) |
+| 도구 호출 | `gh issue create --type` (gh v2.63+ 필요) | `gh api -X POST repos/.../issues` + bash 변수 quoting (외부 jq 불필요, gh 내장 `--jq` + `python3` 사용) |
+
+#### 자동 마이그레이션 절차 (메인 세션이 1회 수행)
+
+읽은 config의 최상위 `$schema_version`이 누락이거나 `< 2`이면 다음 변환을 적용한 뒤 동일 경로로 다시 저장한다. atomic write(`os.replace`)로 부분 쓰기 시 config가 파괴되는 사고를 차단한다. 알 수 없는 키는 모두 보존되어 사용자 튜닝이 손실되지 않는다.
+
+```bash
+python3 - "$CONFIG_FILE" <<'PY'
+import json, os, sys, tempfile
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    cfg = json.load(f)
+
+reg = cfg.get("regression") or {}
+reg.pop("grace_hours", None)              # v1 키 제거(의미 폐기)
+reg.setdefault("auto_close", True)        # 신규 기본값 — 사용자가 false로 둔 경우는 보존
+cfg["regression"] = reg
+cfg["$schema_version"] = 2
+
+dir_ = os.path.dirname(path) or "."
+fd, tmp = tempfile.mkstemp(prefix=".cfg.", dir=dir_)
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+os.replace(tmp, path)                     # POSIX rename → atomic
+PY
+```
+
+마이그레이션이 일어났다면 Step 5 결과 표 머리에 `migrated_to_schema_v2` 1회 안내. 사용자에게 *"`grace_hours`는 더 이상 동작하지 않으며 `auto_close: true`가 기본 적용된다"*는 한 줄을 같이 노출한다.
+
+#### 검증
+
+자동 마이그레이션 후 다음을 확인한다:
+
+```bash
+PROJECT_KEY=$(git remote get-url origin 2>/dev/null \
+  | sed -E 's|^https?://[^/]+/||; s|^git@[^:]+:||; s|\.git$||; s|/|-|g' \
+  | tr '[:upper:]' '[:lower:]')
+CFG=~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
+
+# 세 가지 검사 한 번에 — python3 표준 라이브러리만 사용
+python3 - "$CFG" <<'PY'
+import json, sys
+c = json.load(open(sys.argv[1]))
+print("$schema_version == 2 :", c.get("$schema_version") == 2)        # True 기대
+print("grace_hours removed  :", "grace_hours" not in c.get("regression", {}))  # True 기대
+print("auto_close present   :", "auto_close" in c.get("regression", {}))       # True 기대 (사용자가 false로 둔 경우는 그 값 보존)
+print("auto_close value     :", c.get("regression", {}).get("auto_close"))
+PY
+```
+
+세 검사가 모두 `True`로 출력되면 마이그레이션 정상 완료.

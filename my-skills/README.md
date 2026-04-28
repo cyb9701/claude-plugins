@@ -28,8 +28,6 @@ Open Claude Code and run inside a session:
 /reload-plugins
 ```
 
-> **Scope is flexible** — the Crashlytics skills auto-isolate config per project (keyed by `<owner>-<repo>` from the git remote), so installing at `user` scope still keeps each project's Firebase setup separate. Use `project` or `local` scope only if you also want plugin enable/disable to be per-project.
-
 ### Local development
 
 ```bash
@@ -88,7 +86,7 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 
 ## Configuration Storage
 
-The two Crashlytics skills persist per-user **and per-project** setup results (Firebase project ID, GitHub repo, label selections, etc.) in a separate location from the bundled defaults. Plugin updates replace the bundled defaults but never overwrite user data, and each project gets its own isolated subdirectory so multiple projects on the same machine never overwrite each other.
+Even with a single `user`-scope installation, the two Crashlytics skills persist per-user **and per-project** setup results (Firebase project ID, GitHub repo, label selections, etc.) in a separate location from the bundled defaults. Plugin updates replace the bundled defaults but never overwrite user data, and each project gets its own isolated subdirectory so multiple projects on the same machine never overwrite each other — this is what makes `user`-scope installation safe by default.
 
 | Path                                                                    | Role                                                          | Survives update?   |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------ |

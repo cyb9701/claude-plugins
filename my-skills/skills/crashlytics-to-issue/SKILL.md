@@ -3,7 +3,7 @@ name: crashlytics-to-issue
 description: Use when Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 등록·동기화하거나 이미 close된 이슈의 회귀(regression)를 자동 감지할 때. "crashlytics 이슈 등록", "크래시 GitHub 동기화", "크래시 회귀 감지", "open crashes to issues", "crashlytics regression" 요청에 반드시 사용. Sentry·Bugsnag 등 비-Crashlytics 에러 트래커에는 사용 금지.
 model: sonnet
 effort: medium
-disable-model-invocation: false
+disable-model-invocation: true
 ---
 
 # crashlytics-to-issue

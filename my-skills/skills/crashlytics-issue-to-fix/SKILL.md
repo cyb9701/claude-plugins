@@ -3,6 +3,7 @@ name: crashlytics-issue-to-fix
 description: Use when fixing Firebase Crashlytics-linked GitHub Issues (or general bugs sharing the same label) by analyzing them in isolated git worktrees, generating one independent PR per issue, then batch-reviewing, merging, and synchronously closing both the GitHub Issue and the Crashlytics issue in one cycle. Triggers on "fix crashlytics issue", "auto-fix from issue", "issue to fix", "close crashlytics issue with PR", "worktree-based issue fix". Invoke even when only a single issue number is specified. Works standalone on plain bug-label issues; if a sibling skill registers Crashlytics issues into GitHub with HTML metadata comments, those comments are consumed for automatic Crashlytics-side closure.
 model: opus
 effort: xhigh
+disable-model-invocation: true
 ---
 
 # crashlytics-issue-to-fix

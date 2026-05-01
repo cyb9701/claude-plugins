@@ -190,6 +190,108 @@
           "check": "첫 문자가 프롬프트 내용. 메타 설명 없음."
         }
       ]
+    },
+    {
+      "id": 6,
+      "name": "auto-context-extraction",
+      "prompt": "응답에 줄임표(...)는 절대 쓰지 마. 음성 합성기가 발음을 못하니까. 그리고 답변은 두 문장 이내로.",
+      "expected_output": "원문에 명시적 인과 표현('~못하니까')이 있으므로 자동 적용 4번에 의해 <context> 블록으로 분리되어야 함. '두 문장 이내'·'줄임표 금지' 등 원문 제약은 모두 보존. 정보 추가 없음.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "context-block-present",
+          "text": "출력에 <context> 블록이 존재하고 원문의 '음성 합성기' 또는 '발음' 인과 표현이 그 안에 있어야 한다.",
+          "check": "output contains '<context>' AND ('음성' OR '발음') 안에 위치"
+        },
+        {
+          "id": "preserve-constraint-ellipsis",
+          "text": "줄임표 금지 제약이 (긍정형이든 부정형이든) 살아 있어야 한다.",
+          "check": "output에 '줄임표' 또는 '...' 관련 제약이 명시"
+        },
+        {
+          "id": "preserve-length-constraint",
+          "text": "'두 문장 이내' 수치 제약이 보존되어야 한다.",
+          "check": "output contains '두 문장' OR '2문장' OR '문장 2개'"
+        },
+        {
+          "id": "no-information-added",
+          "text": "원문에 없던 정보(예: 'TTS는 SSML 지원' 등)가 추가되지 않아야 한다.",
+          "check": "출력 길이가 입력 길이의 3배 이내. 페르소나·예시·CoT 추가 없음."
+        },
+        {
+          "id": "no-question",
+          "text": "원문이 충분히 명확하므로 AskUserQuestion 호출 0회.",
+          "check": "AskUserQuestion call count == 0"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "negation-to-positive",
+      "prompt": "프롬프트 정리해줘 — 이모지 쓰지 마, 느낌표 쓰지 마, 반말 쓰지 마, 한국어로만 답해.",
+      "expected_output": "단순 부정형 3개가 동치 긍정형으로 자동 변환되어야 함 (자동 적용 7번). 예: '일반 텍스트, 단정 어조의 존댓말, 한국어로 작성한다'. 의미 손실 0. 정보 추가 0. 질문 없음.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "negation-converted",
+          "text": "'쓰지 마' 같은 명시적 부정형이 출력에서 줄어들거나 긍정형으로 압축되어야 한다.",
+          "check": "출력에서 '쓰지 마' 또는 '하지 마' 출현 횟수 ≤ 1 (혹은 0)"
+        },
+        {
+          "id": "preserve-language-constraint",
+          "text": "'한국어' 제약이 유지되어야 한다.",
+          "check": "output contains '한국어'"
+        },
+        {
+          "id": "preserve-honorific",
+          "text": "반말 금지 → 존댓말 사용으로 변환되어야 한다.",
+          "check": "output에 '존댓말' OR '~합니다' 어조 단서 포함"
+        },
+        {
+          "id": "no-emoji-in-output",
+          "text": "정리된 출력 자체에도 이모지·느낌표가 없어야 한다 (style match).",
+          "check": "출력에 이모지·느낌표 없음"
+        },
+        {
+          "id": "no-question",
+          "text": "원문이 충분히 명확하므로 AskUserQuestion 호출 0회.",
+          "check": "AskUserQuestion call count == 0"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "long-data-repositioning",
+      "prompt": "다음 텍스트의 핵심 주제 3가지를 뽑아줘:\n\n인공지능은 1956년 다트머스 회의에서 처음 학문 분야로 정립되었다. 초기에는 기호주의가 주류였으며, 전문가 시스템·논리 추론을 중심으로 연구가 진행되었다. 1980년대에 신경망 연구가 부활했고, 1990년대에는 통계적 학습이 주류가 되었다. 2010년대에 딥러닝 혁명이 일어나면서 컴퓨터 비전·자연어 처리에서 인간 수준 성능을 달성하기 시작했다. 2020년대에는 대규모 언어 모델이 등장하며 일반 목적 AI에 가까워지고 있다. 산업 적용 측면에서 의료 진단, 자율 주행, 콘텐츠 생성 등 다양한 도메인에서 실용화가 진행되고 있다.",
+      "expected_output": "지시('핵심 주제 3가지를 뽑아줘')와 데이터(긴 인공지능 역사 텍스트)가 섞여 있고, 데이터가 지시 뒤에 위치. 자동 적용 8번에 의해 데이터를 <input> 또는 <text> 태그로 감싸 상단으로 이동, 지시는 하단. '3가지' 수치 보존. 질문 없음.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "data-on-top",
+          "text": "데이터(인공지능 역사 텍스트)가 지시문보다 위에 위치해야 한다.",
+          "check": "output 안에서 '다트머스' 또는 '1956년' 위치 < '핵심 주제' 또는 '3가지' 위치"
+        },
+        {
+          "id": "data-wrapped-in-tag",
+          "text": "데이터가 <input>/<text>/<documents>/<document_content> 등의 태그로 감싸져야 한다.",
+          "check": "output contains ('<input>' OR '<text>' OR '<documents>' OR '<document_content>')"
+        },
+        {
+          "id": "preserve-count-3",
+          "text": "'3가지' 수치가 보존되어야 한다.",
+          "check": "output contains '3가지' OR '3개' OR '세 가지'"
+        },
+        {
+          "id": "preserve-data-content",
+          "text": "데이터의 핵심 키워드 ('1956년', '딥러닝', '대규모 언어 모델')가 모두 보존되어야 한다.",
+          "check": "output에 3개 키워드 모두 포함"
+        },
+        {
+          "id": "no-question",
+          "text": "원문이 충분히 구체적이므로 AskUserQuestion 호출 0회.",
+          "check": "AskUserQuestion call count == 0"
+        }
+      ]
     }
   ]
 }

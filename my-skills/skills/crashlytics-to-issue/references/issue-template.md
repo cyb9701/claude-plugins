@@ -154,7 +154,7 @@ RENDERED_TITLE="[Firebase Crashlytics] ${MODULE} - ${TSUMMARY}"
 
 ### Links
 
-- [Firebase Crashlytics Issue](https://console.firebase.google.com/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id})
+- [Firebase Crashlytics Issue](https://console.firebase.google.com/u/0/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id})
 
 <!-- crashlytics-to-issue meta -->
 <!-- crashlytics_issue_id: {issue_id} -->
@@ -182,7 +182,7 @@ RENDERED_TITLE="[Firebase Crashlytics] ${MODULE} - ${TSUMMARY}"
 본문 링크는 **Firebase Crashlytics Issue 직접 링크 하나만** 둔다. 콘솔의 이슈 페이지 한 곳에서 Events / Breadcrumbs / Signals / Stack / Logs를 모두 볼 수 있으므로 다중 링크는 노이즈가 된다. 링크 URL 패턴:
 
 ```
-https://console.firebase.google.com/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id}
+https://console.firebase.google.com/u/0/project/{project_id}/crashlytics/app/{platform}:{bundle_id_or_package}/issues/{issue_id}
 ```
 
 서브에이전트가 본문 렌더 시 직접 조립한다. 메인 세션은 가공하지 않는다.
@@ -252,8 +252,8 @@ Custom Keys / Breadcrumbs / Logs 도 동일 — `### Custom Keys (iOS)` / `### C
 ```markdown
 ### Links
 
-- [Firebase Crashlytics Issue (iOS)](https://console.firebase.google.com/project/{project_id}/crashlytics/app/ios:{ios_bundle_id}/issues/{ios_issue_id})
-- [Firebase Crashlytics Issue (Android)](https://console.firebase.google.com/project/{project_id}/crashlytics/app/android:{android_package}/issues/{android_issue_id})
+- [Firebase Crashlytics Issue (iOS)](https://console.firebase.google.com/u/0/project/{project_id}/crashlytics/app/ios:{ios_bundle_id}/issues/{ios_issue_id})
+- [Firebase Crashlytics Issue (Android)](https://console.firebase.google.com/u/0/project/{project_id}/crashlytics/app/android:{android_package}/issues/{android_issue_id})
 ```
 
 ## Regression Rendering

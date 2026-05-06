@@ -57,7 +57,7 @@ Step 3의 앱별 서브에이전트는 단순 fetcher가 아니다. Crashlytics 
       - has_custom_keys  = sample 이벤트 중 custom_keys가 있는지
       - has_breadcrumbs  = sample 이벤트 중 breadcrumbs가 있는지
       - has_logs         = sample 이벤트 중 logs가 있는지
-      - issue_link = "https://console.firebase.google.com/project/<project_id>"
+      - issue_link = "https://console.firebase.google.com/u/0/project/<project_id>"
                      "/crashlytics/app/<platform>:<bundle_id_or_package>"
                      "/issues/<issue_id>"
    e. issue-template.md의 Body Template을 렌더해 rendered_body 생성:

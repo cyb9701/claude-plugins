@@ -1,9 +1,12 @@
 ---
-description: List all skills across active plugins, user, and project as a markdown table. First argument may be an ISO language code (en, ko, ja, zh, fr, de, es, pt, ru, it, ar) to translate descriptions; remaining arguments filter by keyword.
+name: skill-tree
+description: 활성 플러그인 + user + project 영역의 모든 스킬 카탈로그를 마크다운 테이블로 출력. 첫 인자가 ISO 언어 코드(en, ko, ja, zh, fr, de, es, pt, ru, it, ar)면 description 컬럼만 해당 언어로 번역하고, 나머지 인자는 키워드 필터로 사용한다. 슬래시 호출(`/easy-claude-code:skill-tree`) 전용.
+model: haiku
+disable-model-invocation: true
 allowed-tools: Bash(python3 *)
 ---
 
-!`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/list-skills.py" $ARGUMENTS`
+!`python3 "${CLAUDE_SKILL_DIR}/list-skills.py" $ARGUMENTS`
 
 위 출력은 이미 완성된 마크다운 테이블입니다.
 

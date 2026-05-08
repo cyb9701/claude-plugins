@@ -15,7 +15,7 @@
 | `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
 | `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
 | `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
-| `skill-tree` (slash command) | `/easy-claude-code:skill-tree [<lang>] [<query>]`        | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. **Slash-only** — natural-language invocation not supported (the catalog is pre-rendered by a Python script via `!`backtick-bang`` syntax to skip permission prompts). |
+| `skill-tree`               | `/easy-claude-code:skill-tree [<lang>] [<query>]`          | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. Runs on `haiku` with `disable-model-invocation: true` — slash-only, no natural-language trigger. The catalog is pre-rendered by a Python script via `` !`<command>` `` syntax so no permission prompts appear. |
 
 ## Installation
 
@@ -44,9 +44,9 @@ To apply changes without restarting:
 
 ## Permissions
 
-A bundled `PreToolUse` hook (`hooks/hooks.json`) auto-approves `easy-claude-code:*` skill calls — natural-language invocations run without a prompt.
+A bundled `PreToolUse` hook (`hooks/hooks.json`) auto-approves `easy-claude-code:*` skill invocations from natural-language prompts, so Crashlytics and prompt-refine skills run without an approval prompt.
 
-For direct slash invocations (`/easy-claude-code:skill-tree`), pick `Yes, and don't ask again` on the first prompt. Claude Code remembers it per project.
+`/easy-claude-code:skill-tree` uses `disable-model-invocation: true` together with the `` !`<command>` `` pre-execution syntax. The Python script runs before Claude sees the skill content, so no permission prompts appear at all.
 
 ## Prerequisites
 
@@ -93,7 +93,7 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 
 ### Browse all active skills
 
-`skill-tree` is a **slash command** (not a model-invocable skill), so it must be called explicitly with the full namespace:
+`skill-tree` is a slash-only skill (`disable-model-invocation: true`) — the catalog is pre-rendered by a Python script before Claude sees the content, so it must be called explicitly with the full namespace:
 
 ```shell
 # List every skill across all active plugins, user scope, and project scope
@@ -154,12 +154,8 @@ To re-run setup:
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
-├── commands/
-│   └── skill-tree.md   # Slash command using !`...` to inline-execute the script (no permission prompt)
 ├── hooks/
-│   └── hooks.json      # PreToolUse hook auto-approving easy-claude-code:* skill calls
-├── scripts/
-│   └── list-skills.py  # Plugin/user/project skill catalog generator (Python stdlib only)
+│   └── hooks.json          # PreToolUse hook auto-approving easy-claude-code:* skill calls
 ├── README.md
 ├── README.ko.md
 └── skills/
@@ -171,10 +167,13 @@ easy-claude-code/
     │   ├── SKILL.md
     │   ├── config.json
     │   └── references/
-    └── prompt-refine/
-        ├── SKILL.md
-        ├── evals/
-        └── references/
+    ├── prompt-refine/
+    │   ├── SKILL.md
+    │   ├── evals/
+    │   └── references/
+    └── skill-tree/
+        ├── SKILL.md        # haiku skill with disable-model-invocation + !`...` inline execution
+        └── list-skills.py  # Plugin/user/project skill catalog generator (Python stdlib only)
 ```
 
 Runtime user data (`~/.claude/plugins/data/easy-claude-code*/`) is not bundled — it is created automatically on first setup.

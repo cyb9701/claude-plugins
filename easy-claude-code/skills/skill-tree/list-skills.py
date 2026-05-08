@@ -117,19 +117,13 @@ def render(plugin_rows, user_rows, project_rows, query: str) -> str:
     total = len(plugin_rows) + len(user_rows) + len(project_rows)
 
     lines: list[str] = []
-    lines.append(
-        f"# Skill Tree ({n_plugins} plugins, {len(user_rows)} user, "
-        f"{len(project_rows)} project, total: {total} skills)"
-    )
     if query:
         lines.append(f'(Search: "{query}")')
-    lines.append("")
+        lines.append("")
 
-    lines.append("## 🔌 Active Plugins")
-    lines.append("")
     if plugin_rows:
         for plugin_name, group in groupby(plugin_rows, key=lambda r: r[0]):
-            lines.append(f"### {plugin_name}")
+            lines.append(f"### 🟢 {plugin_name}")
             lines.append("")
             lines.append("| Skill | Description |")
             lines.append("|-------|-------------|")
@@ -140,7 +134,8 @@ def render(plugin_rows, user_rows, project_rows, query: str) -> str:
         lines.append("(no matches)")
         lines.append("")
 
-    lines.append("## 👤 User & 📁 Project Skills")
+    lines.append("### 🟢 user & project")
+    lines.append("")
     lines.append("| Scope | Skill | Description |")
     lines.append("|-------|-------|-------------|")
     if user_rows or project_rows:

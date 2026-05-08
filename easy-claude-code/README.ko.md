@@ -42,6 +42,12 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 /reload-plugins
 ```
 
+## 권한 설정
+
+번들된 `PreToolUse` hook(`hooks/hooks.json`)이 `easy-claude-code:*` 스킬 호출을 자동 승인합니다 — 자연어 호출은 프롬프트 없이 실행됩니다.
+
+슬래시 직접 호출(`/easy-claude-code:skill-tree`)은 첫 프롬프트에서 `Yes, and don't ask again` 을 선택하세요. Claude Code 가 프로젝트별로 기억합니다.
+
 ## 사전 요구사항
 
 ### 공통
@@ -148,6 +154,8 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
+├── hooks/
+│   └── hooks.json     # easy-claude-code:* 스킬 호출을 자동 승인하는 PreToolUse hook
 ├── README.md
 ├── README.ko.md
 └── skills/

@@ -42,6 +42,12 @@ To apply changes without restarting:
 /reload-plugins
 ```
 
+## Permissions
+
+A bundled `PreToolUse` hook (`hooks/hooks.json`) auto-approves `easy-claude-code:*` skill calls — natural-language invocations run without a prompt.
+
+For direct slash invocations (`/easy-claude-code:skill-tree`), pick `Yes, and don't ask again` on the first prompt. Claude Code remembers it per project.
+
 ## Prerequisites
 
 ### All skills
@@ -148,6 +154,8 @@ To re-run setup:
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
+├── hooks/
+│   └── hooks.json     # PreToolUse hook auto-approving easy-claude-code:* skill calls
 ├── README.md
 ├── README.ko.md
 └── skills/

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "INPUT=$(cat); if printf '%s' \"$INPUT\" | grep -q '\"skill\"[[:space:]]*:[[:space:]]*\"easy-claude-code:'; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"easy-claude-code plugin auto-approved\"}}'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

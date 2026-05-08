@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/cyb/.claude/**)"
+      "Read(/Users/cyb/.claude/**)",
+      "Bash(bash:*)",
+      "Skill(easy-claude-code:skill-tree)",
+      "Skill(easy-claude-code:skill-tree:*)",
+      "Skill(code-review:code-review)",
+      "Skill(code-review:code-review:*)"
     ]
   }
 }

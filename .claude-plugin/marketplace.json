@@ -1,14 +1,14 @@
 {
-  "name": "choi-claude-plugins",
+  "name": "easy-claude-code",
   "owner": {
     "name": "cyb9701",
     "email": "cyb9701@gmail.com"
   },
   "plugins": [
     {
-      "name": "my-skills",
-      "source": "./my-skills",
-      "description": "A bundle of Claude Code skills — prompt refinement and Firebase Crashlytics ↔ GitHub Issue automation (registration, regression detection, worktree-based auto-fix)."
+      "name": "easy-claude-code",
+      "source": "./easy-claude-code",
+      "description": "Practical tools for getting more out of Claude Code."
     }
   ]
 }

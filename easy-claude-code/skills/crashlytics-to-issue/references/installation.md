@@ -10,9 +10,9 @@
 
 ## Installation
 
-이 skill은 `my-skills` 플러그인의 일부로 배포된다. 플러그인 활성화를 통해서만 사용한다.
+이 skill은 `easy-claude-code` 플러그인의 일부로 배포된다. 플러그인 활성화를 통해서만 사용한다.
 
-플러그인 자체 설치·로드 방법은 [my-skills 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 반영할 수 있다.
+플러그인 자체 설치·로드 방법은 [easy-claude-code 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 반영할 수 있다.
 
 ## Storage Layout
 
@@ -27,7 +27,7 @@
 
 `<PROJECT_KEY>`는 호출 시점에 다음 우선순위로 자동 추출된다:
 
-1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-claude-plugins`)
+1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-easy-claude-code`)
 2. 실패 시 `git rev-parse --show-toplevel`의 basename
 3. 둘 다 실패 시 `pwd`의 basename
 
@@ -55,7 +55,7 @@ gh label create "state:regression"     --repo "$REPO" --description "Regression"
 
 스킬 호출:
 
-- 슬래시 커맨드: `/my-skills:crashlytics-to-issue`
+- 슬래시 커맨드: `/easy-claude-code:crashlytics-to-issue`
 - 자연어: "Crashlytics 이슈를 GitHub에 등록해줘" / "open crashes를 이슈로 올려"
 
 첫 실행 시 현재 프로젝트의 영구 저장소가 비어 있으므로 셋업 대화로 진입한다:
@@ -89,7 +89,7 @@ gh label create "state:regression"     --repo "$REPO" --description "Regression"
 ### 작성자 측: 번들 템플릿 검증
 
 ```bash
-PLUGIN_ROOT=<my-skills 플러그인 루트>
+PLUGIN_ROOT=<easy-claude-code 플러그인 루트>
 
 ls "$PLUGIN_ROOT/skills/crashlytics-to-issue/"
 # expect: SKILL.md, config.json, references/
@@ -111,7 +111,7 @@ echo "PROJECT_KEY=$PROJECT_KEY"
 python3 -c "
 import json, glob, os
 for p in glob.glob(os.path.expanduser(
-    '~/.claude/plugins/data/my-skills*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json')):
+    '~/.claude/plugins/data/easy-claude-code*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json')):
     c = json.load(open(p))
     print('project_id:', c['firebase']['project_id'])
     print('apps      :', c['firebase']['apps'])

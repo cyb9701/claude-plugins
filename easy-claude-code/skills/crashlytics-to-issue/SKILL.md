@@ -34,7 +34,7 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 **저장 경로 결정 — PROJECT_KEY 추출**: 동일 사용자가 여러 프로젝트를 오갈 때 셋업이 독립 보존되도록, config는 프로젝트별 서브디렉토리에 저장한다. PROJECT_KEY는 다음 우선순위로 추출, 모든 결과는 lowercase로 정규화하고 영숫자·하이픈 외 문자를 `-`로 치환한 뒤 연속 하이픈을 1개로 압축한다.
 
-1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태. 예: `https://github.com/cyb9701/claude-plugins.git` → `cyb9701-claude-plugins`
+1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태. 예: `https://github.com/cyb9701/easy-claude-code.git` → `cyb9701-easy-claude-code`
 2. 실패 시 `git rev-parse --show-toplevel`의 basename 정규화
 3. 둘 다 실패 시 `pwd`의 basename 정규화
 

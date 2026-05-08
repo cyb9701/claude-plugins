@@ -17,9 +17,9 @@
 
 ## Installation
 
-이 skill은 `my-skills` 플러그인의 일부로 배포된다. standalone 복사·설치(`~/.claude/skills/<name>/`)는 더 이상 지원하지 않으며, 플러그인 활성화를 통해서만 사용한다.
+이 skill은 `easy-claude-code` 플러그인의 일부로 배포된다. standalone 복사·설치(`~/.claude/skills/<name>/`)는 더 이상 지원하지 않으며, 플러그인 활성화를 통해서만 사용한다.
 
-플러그인 자체 설치·로드 방법은 [my-skills 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 즉시 반영할 수 있다.
+플러그인 자체 설치·로드 방법은 [easy-claude-code 플러그인 README](../../../README.md) 참고. 개발 시점에는 `claude --plugin-dir <plugin-root>`으로 in-place 로드 후 `/reload-plugins`로 변경 사항을 즉시 반영할 수 있다.
 
 ## Storage Layout
 
@@ -34,7 +34,7 @@
 
 `<PROJECT_KEY>`는 호출 시점에 다음 우선순위로 자동 추출된다:
 
-1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-claude-plugins`)
+1. `git remote get-url origin` 성공 시 `<owner>-<repo>` 형태 (예: `cyb9701-easy-claude-code`)
 2. 실패 시 `git rev-parse --show-toplevel`의 basename
 3. 둘 다 실패 시 `pwd`의 basename
 
@@ -46,7 +46,7 @@
 
 호출 방법:
 
-- 슬래시 커맨드: `/my-skills:crashlytics-issue-to-fix` (인자 없음 → 라벨 기반 일괄 조회), `/my-skills:crashlytics-issue-to-fix 123,456` (특정 이슈만)
+- 슬래시 커맨드: `/easy-claude-code:crashlytics-issue-to-fix` (인자 없음 → 라벨 기반 일괄 조회), `/easy-claude-code:crashlytics-issue-to-fix 123,456` (특정 이슈만)
 - 자연어 예시: "fix crashlytics issue #123", "이슈 #123 자동 수정해줘", "crashlytics 라벨 이슈 처리해줘"
 
 입력값은 해당 프로젝트의 `${CLAUDE_PLUGIN_DATA}/crashlytics-issue-to-fix/projects/<PROJECT_KEY>/config.json`에 저장되어 다음 실행부터는 같은 프로젝트에서만 셋업이 생략된다. 다른 프로젝트로 이동하면 그 프로젝트의 별도 PROJECT_KEY 디렉토리에서 새 셋업이 트리거된다. 설정을 다시 받고 싶으면 `--reconfigure`.
@@ -189,7 +189,7 @@ dart run build_runner build --delete-conflicting-outputs
 ### 작성자 측: 번들 템플릿 검증
 
 ```bash
-PLUGIN_ROOT=<my-skills 플러그인 루트>
+PLUGIN_ROOT=<easy-claude-code 플러그인 루트>
 
 # 1. skill 디렉토리 구조 확인
 ls "$PLUGIN_ROOT/skills/crashlytics-issue-to-fix/"
@@ -219,12 +219,12 @@ PROJECT_KEY=$(git remote get-url origin 2>/dev/null \
 echo "PROJECT_KEY=$PROJECT_KEY"
 
 # 첫 셋업이 한 번이라도 완료된 뒤에 생성된다 (현재 프로젝트만)
-ls ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
+ls ~/.claude/plugins/data/easy-claude-code*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
 
 # 셋업 결과가 반영됐는지 확인 — 셋업 후 project_id·repo가 채워져 있어야 함
 jq '.firebase.project_id, .github.repo' \
-  ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
+  ~/.claude/plugins/data/easy-claude-code*/crashlytics-issue-to-fix/projects/$PROJECT_KEY/config.json
 
 # 모든 프로젝트 셋업 목록 확인 (다중 프로젝트 사용 시)
-ls ~/.claude/plugins/data/my-skills*/crashlytics-issue-to-fix/projects/
+ls ~/.claude/plugins/data/easy-claude-code*/crashlytics-issue-to-fix/projects/
 ```

@@ -1,20 +1,26 @@
-# my-skills
+# easy-claude-code
 
 🌐 **English** | [한국어](README.ko.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-orange)](https://github.com/anthropics/claude-code)
 
-> A Claude Code plugin bundling skills for prompt refinement and Firebase Crashlytics automation.
+> A Claude Code plugin bundling skills for prompt refinement, Firebase Crashlytics automation, and skill discovery.
 > **This is a personal project, not an official Anthropic product.**
 
 ## Skills
 
 | Skill                      | Invocation                                          | Purpose                                                                                                                    |
 | -------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/my-skills:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                  |
-| `crashlytics-to-issue`     | `/my-skills:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                 |
-| `crashlytics-issue-to-fix` | `/my-skills:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge. |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                  |
+| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                 |
+| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge. |
+
+## Commands
+
+| Command      | Invocation                                      | Purpose                                                                                                                                  |
+| ------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `skill-tree` | `/easy-claude-code:skill-tree [<lang>] [<query>]` | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. |
 
 ## Installation
 
@@ -23,16 +29,16 @@
 Open Claude Code and run inside a session:
 
 ```shell
-/plugin marketplace add cyb9701/claude-plugins
-/plugin install my-skills@claude-plugins
+/plugin marketplace add cyb9701/easy-claude-code
+/plugin install easy-claude-code@easy-claude-code
 /reload-plugins
 ```
 
 ### Local development
 
 ```bash
-git clone https://github.com/cyb9701/claude-plugins.git
-claude --plugin-dir ./claude-plugins/my-skills
+git clone https://github.com/cyb9701/easy-claude-code.git
+claude --plugin-dir ./easy-claude-code/easy-claude-code
 ```
 
 To apply changes without restarting:
@@ -65,24 +71,51 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 ### Refine a prompt
 
 ```shell
-/my-skills:prompt-refine Rewrite this: "please review my code"
+/easy-claude-code:prompt-refine Rewrite this: "please review my code"
 ```
 
 ### Sync Crashlytics crashes to GitHub Issues
 
 ```shell
-/my-skills:crashlytics-to-issue
+/easy-claude-code:crashlytics-to-issue
 ```
 
 ### Auto-fix Crashlytics issues from GitHub
 
 ```shell
 # Process all issues found by label
-/my-skills:crashlytics-issue-to-fix
+/easy-claude-code:crashlytics-issue-to-fix
 
 # Target specific issues
-/my-skills:crashlytics-issue-to-fix 150 151 152
+/easy-claude-code:crashlytics-issue-to-fix 150 151 152
 ```
+
+### Browse all active skills
+
+```shell
+# List every skill across all active plugins, user scope, and project scope
+/easy-claude-code:skill-tree
+
+# Filter by keyword
+/easy-claude-code:skill-tree crashlytics
+
+# Translate descriptions to a specific language (ISO 639-1/2 code)
+/easy-claude-code:skill-tree en
+/easy-claude-code:skill-tree ja
+
+# Combine: translate to Japanese and filter by keyword
+/easy-claude-code:skill-tree ja prompt
+```
+
+`skill-tree` scans three locations and merges the results into a single table:
+
+| Source | Location |
+| ------ | -------- |
+| Plugin skills | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/` |
+| User skills | `~/.claude/skills/` |
+| Project skills | `.claude/skills/` (current working directory) |
+
+When a language code is the first argument, only the **Description** column is translated — plugin and skill names are left as-is so they remain copy-paste-ready for `/` invocations.
 
 ## Configuration Storage
 
@@ -93,11 +126,11 @@ Even with a single `user`-scope installation, the two Crashlytics skills persist
 | `${CLAUDE_SKILL_DIR}/config.json`                                       | Bundled defaults template (severity thresholds, retry policy) | Replaced on update |
 | `${CLAUDE_PLUGIN_DATA}/<skill-name>/projects/<PROJECT_KEY>/config.json` | Per-user + per-project setup results                          | Preserved          |
 
-`${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/my-skills*/` (suffix varies by marketplace ID).
+`${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/easy-claude-code*/` (suffix varies by marketplace ID).
 
 `<PROJECT_KEY>` is auto-extracted at invocation time, in this priority order:
 
-1. `git remote get-url origin` parsed to `<owner>-<repo>` (e.g., `cyb9701-claude-plugins`)
+1. `git remote get-url origin` parsed to `<owner>-<repo>` (e.g., `cyb9701-easy-claude-code`)
 2. Fallback: `git rev-parse --show-toplevel` basename
 3. Final fallback: `pwd` basename
 
@@ -106,8 +139,8 @@ This per-project keying lets the same user work across multiple projects (compan
 To re-run setup:
 
 ```shell
-/my-skills:crashlytics-to-issue --reconfigure
-/my-skills:crashlytics-issue-to-fix --reconfigure
+/easy-claude-code:crashlytics-to-issue --reconfigure
+/easy-claude-code:crashlytics-issue-to-fix --reconfigure
 ```
 
 `prompt-refine` has no external config and is unaffected by this section.
@@ -115,11 +148,15 @@ To re-run setup:
 ## Directory Structure
 
 ```
-my-skills/
+easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── README.md
 ├── README.ko.md
+├── commands/
+│   └── skill-tree.md       # slash-command definition for /easy-claude-code:skill-tree
+├── scripts/
+│   └── skill-tree.sh       # bash implementation called by the command
 └── skills/
     ├── crashlytics-issue-to-fix/
     │   ├── SKILL.md
@@ -135,7 +172,7 @@ my-skills/
         └── references/
 ```
 
-Runtime user data (`~/.claude/plugins/data/my-skills*/`) is not bundled — it is created automatically on first setup.
+Runtime user data (`~/.claude/plugins/data/easy-claude-code*/`) is not bundled — it is created automatically on first setup.
 
 ## License
 

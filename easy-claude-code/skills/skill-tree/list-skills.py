@@ -6,21 +6,24 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Iterable
+from itertools import groupby
 from pathlib import Path
-from typing import Iterable
 
 LANGS = {"en", "ko", "ja", "zh", "fr", "de", "es", "pt", "ru", "it", "ar"}
 DESC_LIMIT = 80
 HOME = Path.home()
 
 
-def parse_args(argv: list[str]) -> tuple[str, str]:
+def extract_query(argv: list[str]) -> str:
+    """Drop a leading ISO-language token (handled by the model) and join the rest as the query.
+
+    Re-tokenizes via join+split so quoted single-string argv (e.g. `["ko crashlytics"]`) and
+    shell-split argv (e.g. `["ko", "crashlytics"]`) both work the same way.
+    """
     tokens = " ".join(argv).split()
-    lang = ""
-    if tokens and tokens[0] in LANGS:
-        lang = tokens[0]
-        tokens = tokens[1:]
-    return lang, " ".join(tokens).strip()
+    rest = tokens[1:] if tokens and tokens[0] in LANGS else tokens
+    return " ".join(rest).strip()
 
 
 def load_enabled_plugins(*paths: Path) -> list[str]:
@@ -56,10 +59,13 @@ def parse_frontmatter(path: Path) -> dict[str, str] | None:
 
 
 def latest_version_dir(plugin_dir: Path) -> Path | None:
-    candidates = [p for p in plugin_dir.iterdir() if p.is_dir()] if plugin_dir.is_dir() else []
-    if not candidates:
+    if not plugin_dir.is_dir():
         return None
-    return sorted(candidates, key=lambda p: p.name)[-1]
+    return max(
+        (p for p in plugin_dir.iterdir() if p.is_dir()),
+        key=lambda p: p.name,
+        default=None,
+    )
 
 
 def collect_plugin_skills(enabled_plugins: Iterable[str]) -> list[tuple[str, str, str]]:
@@ -120,37 +126,29 @@ def render(plugin_rows, user_rows, project_rows, query: str) -> str:
     lines.append("")
 
     lines.append("## 🔌 Active Plugins")
-    lines.append("| Plugin | Skill | Description |")
-    lines.append("|--------|-------|-------------|")
-    if plugin_rows:
-        last_plugin: str | None = None
-        for plugin_name, skill_name, description in plugin_rows:
-            label = f"**{plugin_name}**" if plugin_name != last_plugin else ""
-            lines.append(f"| {label} | {skill_name} | {truncate(description)} |")
-            last_plugin = plugin_name
-    else:
-        lines.append("| (no matches) |  |  |")
     lines.append("")
+    if plugin_rows:
+        for plugin_name, group in groupby(plugin_rows, key=lambda r: r[0]):
+            lines.append(f"### {plugin_name}")
+            lines.append("")
+            lines.append("| Skill | Description |")
+            lines.append("|-------|-------------|")
+            for _, skill_name, description in group:
+                lines.append(f"| {skill_name} | {truncate(description)} |")
+            lines.append("")
+    else:
+        lines.append("(no matches)")
+        lines.append("")
 
     lines.append("## 👤 User & 📁 Project Skills")
     lines.append("| Scope | Skill | Description |")
     lines.append("|-------|-------|-------------|")
-    rendered_any = False
-    if user_rows:
-        first = True
-        for skill_name, description in user_rows:
-            label = "User" if first else ""
-            lines.append(f"| {label} | {skill_name} | {truncate(description)} |")
-            first = False
-        rendered_any = True
-    if project_rows:
-        first = True
-        for skill_name, description in project_rows:
-            label = "Project" if first else ""
-            lines.append(f"| {label} | {skill_name} | {truncate(description)} |")
-            first = False
-        rendered_any = True
-    if not rendered_any:
+    if user_rows or project_rows:
+        for scope, rows in (("User", user_rows), ("Project", project_rows)):
+            for i, (skill_name, description) in enumerate(rows):
+                label = scope if i == 0 else ""
+                lines.append(f"| {label} | {skill_name} | {truncate(description)} |")
+    else:
         lines.append("| (no matches) |  |  |")
     lines.append("")
 
@@ -163,7 +161,7 @@ def render(plugin_rows, user_rows, project_rows, query: str) -> str:
 
 
 def main(argv: list[str]) -> int:
-    _lang, query = parse_args(argv[1:])
+    query = extract_query(argv[1:])
 
     enabled = load_enabled_plugins(
         HOME / ".claude" / "settings.json",

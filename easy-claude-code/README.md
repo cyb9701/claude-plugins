@@ -44,9 +44,9 @@ To apply changes without restarting:
 
 ## Permissions
 
-A bundled `PreToolUse` hook (`hooks/hooks.json`) auto-approves `easy-claude-code:*` skill invocations from natural-language prompts, so Crashlytics and prompt-refine skills run without an approval prompt.
+`/easy-claude-code:skill-tree` uses `disable-model-invocation: true` together with the `` !`<command>` `` pre-execution syntax — the Python script runs before Claude sees the skill content, so no permission prompts appear at all.
 
-`/easy-claude-code:skill-tree` uses `disable-model-invocation: true` together with the `` !`<command>` `` pre-execution syntax. The Python script runs before Claude sees the skill content, so no permission prompts appear at all.
+The other skills (`crashlytics-*`, `prompt-refine`) follow Claude Code's standard permission flow: pick `Yes, and don't ask again` on the first invocation in a project to silence subsequent prompts.
 
 ## Prerequisites
 
@@ -154,8 +154,6 @@ To re-run setup:
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
-├── hooks/
-│   └── hooks.json          # PreToolUse hook auto-approving easy-claude-code:* skill calls
 ├── README.md
 ├── README.ko.md
 └── skills/

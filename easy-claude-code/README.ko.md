@@ -44,9 +44,9 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 
 ## 권한 설정
 
-번들된 `PreToolUse` hook(`hooks/hooks.json`)이 `easy-claude-code:*` 스킬의 자연어 호출을 자동 승인하므로, Crashlytics 와 prompt-refine 스킬이 권한 프롬프트 없이 실행됩니다.
+`/easy-claude-code:skill-tree` 는 `disable-model-invocation: true` 와 `` !`<command>` `` 사전 실행 syntax 를 함께 사용합니다 — Python 스크립트가 Claude 가 스킬 본문을 읽기 _전에_ 실행되므로 권한 프롬프트가 일절 발생하지 않습니다.
 
-`/easy-claude-code:skill-tree` 는 `disable-model-invocation: true` 와 `` !`<command>` `` 사전 실행 syntax 를 함께 사용합니다. Python 스크립트가 Claude 가 스킬 본문을 읽기 _전에_ 실행되므로 권한 프롬프트가 일절 발생하지 않습니다.
+다른 스킬들(`crashlytics-*`, `prompt-refine`)은 Claude Code 의 표준 권한 흐름을 따릅니다. 프로젝트 첫 호출 시 `Yes, and don't ask again` 을 선택하면 이후 호출에서는 묻지 않습니다.
 
 ## 사전 요구사항
 
@@ -154,8 +154,6 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
-├── hooks/
-│   └── hooks.json          # easy-claude-code:* 스킬 호출을 자동 승인하는 PreToolUse hook
 ├── README.md
 ├── README.ko.md
 └── skills/

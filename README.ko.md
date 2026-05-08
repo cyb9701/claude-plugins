@@ -10,17 +10,12 @@
 
 ## 스킬 목록
 
-| 스킬                       | 호출 형식                                                      | 용도                                                                                          |
-| -------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                     | 원본 의도를 보존하면서 사용자 프롬프트를 Claude 최적화 형태로 재구성합니다.                   |
-| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                       | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 동기화하고 회귀를 자동 감지합니다.  |
-| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]`     | Crashlytics 연동 GitHub Issue를 워크트리 격리 환경에서 분석하고 이슈마다 PR 1개를 생성합니다. |
-
-## 커맨드 목록
-
-| 커맨드       | 호출 형식                                                      | 용도                                                                                                    |
-| ------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `skill-tree` | `/easy-claude-code:skill-tree [<lang>] [<query>]`              | 활성 플러그인·user·project 영역의 스킬을 테이블로 출력합니다. 키워드 필터링과 번역을 지원합니다.        |
+| 스킬                       | 호출 형식                                                      | 용도                                                                                                                            |
+| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                     | 원본 의도를 보존하면서 사용자 프롬프트를 Claude 최적화 형태로 재구성합니다.                                                     |
+| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                       | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 동기화하고 회귀를 자동 감지합니다.                                    |
+| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]`     | Crashlytics 연동 GitHub Issue를 워크트리 격리 환경에서 분석하고 이슈마다 PR 1개를 생성합니다.                                   |
+| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                               | 활성 플러그인·user·project 영역의 모든 스킬을 테이블로 출력합니다. 키워드 필터링과 번역을 지원합니다. `haiku` 모델로 실행됩니다. |
 
 ## 빠른 시작
 
@@ -32,12 +27,13 @@ Claude Code를 열고 세션 안에서 아래 명령을 실행합니다:
 /reload-plugins
 ```
 
-설치 후 `easy-claude-code` 네임스페이스로 스킬을 사용합니다:
+설치 후 대부분의 스킬은 `easy-claude-code` 네임스페이스로 호출하지만, `skill-tree`는 네임스페이스 없이 직접 호출합니다:
 
 ```shell
 /easy-claude-code:prompt-refine <텍스트>
 /easy-claude-code:crashlytics-to-issue
 /easy-claude-code:crashlytics-issue-to-fix
+/skill-tree
 ```
 
 전체 사전 요구사항과 사용 예시는 [`easy-claude-code/README.md`](./easy-claude-code/README.md)를 참고하세요.

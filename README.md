@@ -10,17 +10,12 @@
 
 ## Skills
 
-| Skill                      | Invocation                                          | Purpose                                                                                                                    |
-| -------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`            | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                  |
-| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`            | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                 |
-| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge. |
-
-## Commands
-
-| Command      | Invocation                                         | Purpose                                                                                                    |
-| ------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `skill-tree` | `/easy-claude-code:skill-tree [<lang>] [<query>]`  | Lists all active plugin, user, and project skills in a table. Supports keyword filtering and translation.  |
+| Skill                      | Invocation                                                 | Purpose                                                                                                                                              |
+| -------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
+| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
+| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
+| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                           | Lists all active plugin, user, and project skills in a table. Supports keyword filtering and ISO language description translation. Runs on `haiku`. |
 
 ## Quick Start
 
@@ -32,12 +27,13 @@ Open Claude Code and run inside a session:
 /reload-plugins
 ```
 
-After installation, skills are available under the `easy-claude-code` namespace:
+After installation, most skills are available under the `easy-claude-code` namespace, except `skill-tree` which is invoked directly:
 
 ```shell
 /easy-claude-code:prompt-refine <text>
 /easy-claude-code:crashlytics-to-issue
 /easy-claude-code:crashlytics-issue-to-fix
+/skill-tree
 ```
 
 For full prerequisites and usage examples, see [`easy-claude-code/README.md`](./easy-claude-code/README.md).

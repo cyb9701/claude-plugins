@@ -10,17 +10,12 @@
 
 ## Skills
 
-| Skill                      | Invocation                                          | Purpose                                                                                                                    |
-| -------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                  |
-| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                 |
-| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge. |
-
-## Commands
-
-| Command      | Invocation                                      | Purpose                                                                                                                                  |
-| ------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `skill-tree` | `/easy-claude-code:skill-tree [<lang>] [<query>]` | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. |
+| Skill                      | Invocation                                                 | Purpose                                                                                                                                              |
+| -------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
+| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
+| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
+| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                           | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. Runs on the `haiku` model. |
 
 ## Installation
 
@@ -92,19 +87,21 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 
 ### Browse all active skills
 
+`skill-tree` is invoked directly without the plugin namespace prefix (since it allows model-invocation):
+
 ```shell
 # List every skill across all active plugins, user scope, and project scope
-/easy-claude-code:skill-tree
+/skill-tree
 
 # Filter by keyword
-/easy-claude-code:skill-tree crashlytics
+/skill-tree crashlytics
 
 # Translate descriptions to a specific language (ISO 639-1/2 code)
-/easy-claude-code:skill-tree en
-/easy-claude-code:skill-tree ja
+/skill-tree en
+/skill-tree ja
 
 # Combine: translate to Japanese and filter by keyword
-/easy-claude-code:skill-tree ja prompt
+/skill-tree ja prompt
 ```
 
 `skill-tree` scans three locations and merges the results into a single table:
@@ -153,10 +150,6 @@ easy-claude-code/
 │   └── plugin.json
 ├── README.md
 ├── README.ko.md
-├── commands/
-│   └── skill-tree.md       # slash-command definition for /easy-claude-code:skill-tree
-├── scripts/
-│   └── skill-tree.sh       # bash implementation called by the command
 └── skills/
     ├── crashlytics-issue-to-fix/
     │   ├── SKILL.md
@@ -166,10 +159,12 @@ easy-claude-code/
     │   ├── SKILL.md
     │   ├── config.json
     │   └── references/
-    └── prompt-refine/
-        ├── SKILL.md
-        ├── evals/
-        └── references/
+    ├── prompt-refine/
+    │   ├── SKILL.md
+    │   ├── evals/
+    │   └── references/
+    └── skill-tree/
+        └── SKILL.md        # haiku-only skill that scans plugin/user/project skill catalogs via Read+Glob
 ```
 
 Runtime user data (`~/.claude/plugins/data/easy-claude-code*/`) is not bundled — it is created automatically on first setup.

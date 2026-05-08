@@ -15,7 +15,7 @@
 | `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                 | 원본 의도를 보존하면서 사용자 프롬프트를 Claude 최적화 형태로 재구성합니다.                                                                   |
 | `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 동기화하고 회귀를 자동 감지합니다.                                                  |
 | `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Crashlytics 연동 GitHub Issue를 워크트리 격리 환경에서 분석하고, 이슈마다 PR 1개를 생성해 일괄 검토·머지합니다.                               |
-| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                           | 활성 플러그인·user·project 영역의 모든 스킬을 마크다운 테이블로 출력합니다. 키워드 필터링과 ISO 언어 코드 기반 description 번역을 지원합니다. `haiku` 모델로 실행됩니다. |
+| `skill-tree` (슬래시 명령)  | `/easy-claude-code:skill-tree [<lang>] [<query>]`          | 활성 플러그인·user·project 영역의 모든 스킬을 마크다운 테이블로 출력합니다. 키워드 필터링과 ISO 언어 코드 기반 description 번역을 지원합니다. **슬래시 전용** — 자연어 호출은 지원하지 않습니다 (Python 스크립트가 `` !`백틱-느낌표` `` syntax 로 미리 실행되어 권한 프롬프트를 건너뜁니다). |
 
 ## 설치
 
@@ -93,21 +93,21 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 
 ### 활성 스킬 목록 조회
 
-`skill-tree`는 자동 invocation을 허용하므로 플러그인 네임스페이스 prefix 없이 직접 호출합니다:
+`skill-tree`는 **슬래시 명령** (자동 invocation 가능 스킬이 아님) 이므로, 반드시 풀 네임스페이스로 명시적으로 호출합니다:
 
 ```shell
 # 활성 플러그인·user·project 스킬 전체 출력
-/skill-tree
+/easy-claude-code:skill-tree
 
 # 키워드로 필터링
-/skill-tree crashlytics
+/easy-claude-code:skill-tree crashlytics
 
 # 설명을 특정 언어로 번역 (ISO 639-1/2 코드)
-/skill-tree en
-/skill-tree ja
+/easy-claude-code:skill-tree en
+/easy-claude-code:skill-tree ja
 
 # 번역 + 키워드 필터 동시 적용
-/skill-tree ja prompt
+/easy-claude-code:skill-tree ja prompt
 ```
 
 `skill-tree`는 다음 세 위치를 스캔하여 결과를 하나의 테이블로 통합합니다:
@@ -154,8 +154,12 @@ claude --plugin-dir ./easy-claude-code/easy-claude-code
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
+├── commands/
+│   └── skill-tree.md   # !`...` syntax로 스크립트를 inline 실행하는 슬래시 명령 (권한 프롬프트 0)
 ├── hooks/
-│   └── hooks.json     # easy-claude-code:* 스킬 호출을 자동 승인하는 PreToolUse hook
+│   └── hooks.json      # easy-claude-code:* 스킬 호출을 자동 승인하는 PreToolUse hook
+├── scripts/
+│   └── list-skills.py  # plugin/user/project 스킬 카탈로그 생성기 (Python 표준 라이브러리만 사용)
 ├── README.md
 ├── README.ko.md
 └── skills/
@@ -167,12 +171,10 @@ easy-claude-code/
     │   ├── SKILL.md
     │   ├── config.json
     │   └── references/
-    ├── prompt-refine/
-    │   ├── SKILL.md
-    │   ├── evals/
-    │   └── references/
-    └── skill-tree/
-        └── SKILL.md        # Read+Glob으로 plugin·user·project 스킬 카탈로그를 스캔하는 haiku 전용 스킬
+    └── prompt-refine/
+        ├── SKILL.md
+        ├── evals/
+        └── references/
 ```
 
 런타임 사용자 데이터(`~/.claude/plugins/data/easy-claude-code*/`)는 플러그인에 포함되지 않으며, 첫 셋업 시 자동으로 생성됩니다.

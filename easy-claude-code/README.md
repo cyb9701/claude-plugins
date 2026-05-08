@@ -15,7 +15,7 @@
 | `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
 | `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
 | `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
-| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                           | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. Runs on the `haiku` model. |
+| `skill-tree` (slash command) | `/easy-claude-code:skill-tree [<lang>] [<query>]`        | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. **Slash-only** — natural-language invocation not supported (the catalog is pre-rendered by a Python script via `!`backtick-bang`` syntax to skip permission prompts). |
 
 ## Installation
 
@@ -93,21 +93,21 @@ No external dependencies — closed-form text transformer using only `AskUserQue
 
 ### Browse all active skills
 
-`skill-tree` is invoked directly without the plugin namespace prefix (since it allows model-invocation):
+`skill-tree` is a **slash command** (not a model-invocable skill), so it must be called explicitly with the full namespace:
 
 ```shell
 # List every skill across all active plugins, user scope, and project scope
-/skill-tree
+/easy-claude-code:skill-tree
 
 # Filter by keyword
-/skill-tree crashlytics
+/easy-claude-code:skill-tree crashlytics
 
 # Translate descriptions to a specific language (ISO 639-1/2 code)
-/skill-tree en
-/skill-tree ja
+/easy-claude-code:skill-tree en
+/easy-claude-code:skill-tree ja
 
 # Combine: translate to Japanese and filter by keyword
-/skill-tree ja prompt
+/easy-claude-code:skill-tree ja prompt
 ```
 
 `skill-tree` scans three locations and merges the results into a single table:
@@ -154,8 +154,12 @@ To re-run setup:
 easy-claude-code/
 ├── .claude-plugin/
 │   └── plugin.json
+├── commands/
+│   └── skill-tree.md   # Slash command using !`...` to inline-execute the script (no permission prompt)
 ├── hooks/
-│   └── hooks.json     # PreToolUse hook auto-approving easy-claude-code:* skill calls
+│   └── hooks.json      # PreToolUse hook auto-approving easy-claude-code:* skill calls
+├── scripts/
+│   └── list-skills.py  # Plugin/user/project skill catalog generator (Python stdlib only)
 ├── README.md
 ├── README.ko.md
 └── skills/
@@ -167,12 +171,10 @@ easy-claude-code/
     │   ├── SKILL.md
     │   ├── config.json
     │   └── references/
-    ├── prompt-refine/
-    │   ├── SKILL.md
-    │   ├── evals/
-    │   └── references/
-    └── skill-tree/
-        └── SKILL.md        # haiku-only skill that scans plugin/user/project skill catalogs via Read+Glob
+    └── prompt-refine/
+        ├── SKILL.md
+        ├── evals/
+        └── references/
 ```
 
 Runtime user data (`~/.claude/plugins/data/easy-claude-code*/`) is not bundled — it is created automatically on first setup.

@@ -26,9 +26,6 @@
     },
     "major": {}
   },
-  "regression": {
-    "auto_close": true
-  },
   "module": {
     "language": "ko"
   },

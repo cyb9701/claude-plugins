@@ -21,7 +21,9 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 ## Workflow
 
-총 5단계. 단계 간에는 결과 의존성이 있어 순차 실행이지만, 단계 **내부**에서는 한 어시스턴트 턴 안에 다중 tool_use를 발행해 백엔드 병렬화를 활용한다.
+총 6단계. 단계 간에는 결과 의존성이 있어 순차 실행이지만, 단계 **내부**에서는 한 어시스턴트 턴 안에 다중 tool_use를 발행해 백엔드 병렬화를 활용한다.
+
+분류 결과를 세 경로로 라우팅한다: **신규 오류**(`REGISTER(new)`)는 자동 등록, **OPEN GitHub 이슈가 추적 중인 케이스**(`SKIP(already_registered)`/`SKIP(legacy_linked, OPEN)`)는 사용자 결정 없이 Crashlytics를 자동 close, **CLOSED 이슈가 있거나 회귀·outdated_version 분류**는 Step 3.6에서 사용자가 직접 결정한다. 첫 등록·중복 OPEN 차단은 자동화하되 재등록·재처리 판단은 사람이 한다.
 
 ### Step 1. Firebase MCP 환경 점검
 
@@ -70,15 +72,58 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 프롬프트 템플릿·반환 JSON 스키마·통합/회귀 시 body 재가공 규칙은 `references/subagent-contract.md`에 있다.
 
-### Step 3.5. 메인 세션 필터링 (등록 대상 선정)
+### Step 3.5. 메인 세션 필터링 + 큐 라우팅
 
 서브에이전트 결과를 모아 `references/filter-rules.md`의 의사코드에 따라 7개 라벨 중 하나로 분류: `REGISTER(new)`, `REGISTER(regression)`, `SKIP(already_registered)`, `SKIP(already_fixed)`, `SKIP(closed_not_planned)`, `SKIP(legacy_linked)`, `CLOSE_CRASHLYTICS(outdated_version)`. 판정 조건·경계 케이스·버전 비교 fallback은 해당 reference 참조.
 
 핵심 규칙 한 줄: **닫힌 GitHub 이슈 본문의 `max_app_version`보다 Crashlytics 새 이벤트의 `max_app_version`이 크면** `REGISTER(regression)`, **같거나 작으면** `CLOSE_CRASHLYTICS(outdated_version)`.
 
-**앱 간 통합**: 서로 다른 앱의 이슈 중 `display_name`이 동일하면 GitHub 이슈 1건으로 통합. 사유 우선순위는 `regression > new > already_registered > close_crashlytics > already_fixed > closed_not_planned > legacy_linked`. 메모·close 액션은 앱별로 **각각** 수행.
+분류 결과를 다음 세 큐로 라우팅 (상세: `references/filter-rules.md`의 **Queue Routing**):
+
+- `auto_register_queue` — `REGISTER(new)` 케이스만. Step 4에서 즉시 자동 등록.
+- `auto_close_queue` — OPEN GitHub 이슈가 존재하는 두 분류(`SKIP(already_registered)`, `SKIP(legacy_linked, OPEN)`). Step 4-bis에서 사용자 결정 없이 Firebase auto-close + 감사 메모.
+- `decision_queue` — 나머지 5개 분류 (`REGISTER(regression)`, `SKIP(already_fixed)`, `SKIP(closed_not_planned)`, `SKIP(legacy_linked, CLOSED)`, `CLOSE_CRASHLYTICS(outdated_version)`). Step 3.6에서 사용자 결정 수집 후 Step 4 또는 Step 4-bis로 분기.
+
+**`gh issue view` JSON 필드**: 분류 단계에서 `state,stateReason,body,closedAt` 모두 요청한다. `body`는 `parse_max_app_version_from_body`와 `parse_last_seen_from_body`(Step 3.6 요약표용)의 입력이고, `closedAt`은 요약표 `prev_last_seen` fallback이다. 한 번의 조회로 모든 정보를 함께 가져오므로 추가 API 호출이 없다.
+
+**앱 간 통합**: 서로 다른 앱의 이슈 중 `display_name`이 동일하면 GitHub 이슈 1건으로 통합. 사유 우선순위는 `regression > new > already_registered > close_crashlytics > already_fixed > closed_not_planned > legacy_linked`. **통합 그룹 중 하나라도 `decision_queue` 분류라면 통합 전체가 `decision_queue`로 진입**; 모두 `auto_close_queue` 분류일 때만 통합이 `auto_close_queue`로 진입한다. 사용자 결정 1회로 두 앱 모두 처리. 메모·close 액션은 앱별로 **각각** 수행.
+
+### Step 3.6. 사용자 결정 수집 (decision_queue 처리)
+
+`decision_queue`가 비어 있으면 본 단계를 건너뛰고 Step 4로 진행한다 (모든 케이스가 신규 자동 등록인 경우).
+
+큐의 각 케이스마다 다음을 순차 처리한다 — 사용자에게는 한 케이스씩 의사결정 컨텍스트가 노출되어 정보 과부하를 방지한다.
+
+1. **`AskUserQuestion` 사전 로드**: 메인 세션에서 deferred tool 상태이면 `ToolSearch(query="select:AskUserQuestion", max_results=1)`을 1회 발행해 스키마를 로드. Step 2에서 이미 로드됐다면 생략 (중복 비용 0).
+
+2. **요약표 렌더**: `references/issue-template.md`의 **Decision Summary Table** 템플릿을 채워 비교 요약표 markdown을 조립한다. placeholder 매핑·분류별 컬럼 분기·통합 이슈 처리는 해당 섹션 참조. 요약표 markdown은 같은 어시스턴트 턴의 메인 텍스트로 출력해 사용자가 결정 직전에 컨텍스트를 확인할 수 있게 한다.
+
+3. **`AskUserQuestion` 발행**: 정확히 2개 옵션의 단일 선택.
+   - `header`: `결정 i/N` 형태 (예: `결정 3/7`) — 진행률 가시화.
+   - `question`: `<crashlytics_issue_id> 어떻게 처리할까요?`
+   - 옵션 1 — `이슈에 등록`: 신규/회귀로 GitHub 이슈를 등록한다. 회귀 컨텍스트(이전 이슈가 CLOSED + previous_issue_number 존재)가 있으면 자동으로 `state:regression` 라벨이 부여된다.
+   - 옵션 2 — `스킵하고 Crashlytics 닫기`: GitHub 이슈는 만들지 않고 Firebase Crashlytics 이슈를 자동 close하면서 감사 메모를 함께 기록한다.
+
+4. **부수효과 즉시 발행**: 응답을 받자마자 그 케이스의 후속 처리를 즉시 발행한다 (일괄 배치하지 않음). 사용자가 도중에 중단해도 이미 결정된 케이스는 부수효과가 반영된 상태로 보존된다.
+   - `이슈에 등록` 선택 → 케이스를 `register_queue`에 추가하고 그대로 Step 4의 등록 절차를 수행.
+   - `스킵하고 Crashlytics 닫기` 선택 → 케이스를 `close_queue`에 추가하고 그대로 Step 4-bis의 close 절차를 수행.
+
+**중단 처리**: AskUserQuestion이 응답 없이 종료되거나 사용자 중단을 감지하면, 잔여 케이스는 결과 표에 `aborted: user_interrupted`로 표기하고 Step 4-bis 없이 종료한다. 다음 실행 시 같은 분류로 재진입한다 (Crashlytics 이슈가 close되지 않았으므로 다음 조회 결과에 다시 등장 — 멱등 가드는 본문 메타 주석으로 유지).
+
+**`AskUserQuestion` 로드 실패**: deferred tool 스키마 로드가 어떤 이유로 실패하면, `decision_queue` 전체를 `skipped_no_interactive`로 표기하고 Step 4/4-bis 진입 없이 결과 표만 출력한다. 사용자에게 결정 도구를 사용할 수 없는 환경이라는 명확한 경고를 함께 노출한다.
+
+**알려진 한계 — 대량 `decision_queue` UX**: 결정 큐가 10건 이상 누적될 때 일괄 처리("남은 N건 모두 등록"·"모두 스킵하고 닫기") 옵션이 없다. 한 케이스씩 순차 의사결정이 정보 과부하를 방지하는 설계상 이점이지만, 누적이 많은 운영 컨텍스트에서는 부담이 될 수 있다.
+
+현재 시점에서는 단순성을 우선해 일괄 옵션을 도입하지 않는다 — 누적 빈도·사용자 피드백이 정량적으로 확인되면 후속 개선으로 다음을 검토한다:
+
+1. 분류별 일괄 옵션 (예: "모든 `closed_not_planned` 스킵하고 닫기").
+2. `--auto-decide <regression=register,closed_not_planned=skip,...>` 플래그.
+
+당장의 운영 워크로드 완화는 `config.query.lookback_days`를 짧게 두어 (`installation.md` Customization) 한 실행당 노출 케이스를 줄이는 것으로 부분 대응 가능하다.
 
 ### Step 4. GitHub Issue 생성 + Crashlytics 메모 기록
+
+**입력**: `auto_register_queue` (자동 등록 대상, `REGISTER(new)`) + `register_queue` (사용자가 `이슈에 등록` 선택). 두 큐를 같은 절차로 처리하되 회귀 판정만 분기한다.
 
 등록 대상마다 아래를 수행한다. 본문·모듈·심각도·제목용 raw 필드는 서브에이전트가 이미 처리해 `rendered_body`, `module`, `title_summary`, `severity`로 넘겨 준 상태다. **제목 자체는 메인 세션이 직접 조립한다** — LLM 서브에이전트가 만든 `rendered_title`에 의존하면 prefix 누락·변형 가능성이 있어, Bash 변수 한 줄로 강제 prepend한다.
 
@@ -94,7 +139,27 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 2. **통합 이슈 재가공**: 앱 간 통합 대상이면 앱별 `rendered_body`를 합쳐 `event_count`·`impacted_users_count`·버전 범위를 집계·유니온하고, `Top Devices`/`Top OS Versions`/`Top App Versions`/`Top Regions`/`Variants`/`Custom Keys`/`Breadcrumbs`/`Logs` 섹션은 앱별 분기로 표기. 메타 주석 블록은 앱별로 append. 규칙은 `references/issue-template.md`의 **Unified Issues**.
 
-3. **회귀 prepend**: `REGISTER(regression)`이면 `rendered_body` 상단에 회귀 경고 블록을 prepend. 필드는 분류 결과 `context`에서 주입 (`references/issue-template.md`의 **Regression Rendering**).
+3. **회귀 prepend (`is_regression` 판정 + trigger 분기)**: 다음 조건에서 `rendered_body` 상단에 회귀 경고 블록을 prepend한다.
+
+   ```
+   is_regression = (
+       classification == REGISTER(regression)
+       OR (
+           classification.context.previous_issue_number is not None
+           AND gh.state == "CLOSED"
+       )
+   )
+
+   regression_trigger = (
+       "auto_regression"
+       if classification == REGISTER(regression)
+       else "user_decision"
+   )
+   ```
+
+   `regression_trigger`는 prepend 본문 `Trigger:` 라인에 그대로 출력된다 — 본문 단독으로 봐도 자동 감지인지 사용자 결정인지 구분 가능하다 (`references/issue-template.md`의 **Regression Rendering**).
+
+   자동 분류된 회귀 이외에, 사용자가 `이슈에 등록`을 선택한 케이스 중 **이전 이슈가 CLOSED**인 경우(`SKIP(already_fixed)` / `SKIP(closed_not_planned)` / `SKIP(legacy_linked, CLOSED)` / `CLOSE_CRASHLYTICS(outdated_version)`)도 회귀로 처리한다 — 닫혔던 이슈를 사용자가 의도적으로 재등록한 것이므로 회귀 라벨·prepend가 일관된다. 필드는 분류 결과 `context`에서 주입.
 
 4. **라벨 구성**: `default_labels` + `os:{platform}` + `severity:{severity}` + 회귀면 `state:regression`. 통합 이슈는 `os:ios`+`os:android` 양쪽 부여. 사전 등록 필요 라벨 목록은 `references/issue-template.md`의 **Labels**.
 
@@ -110,28 +175,23 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 - 이슈 생성 성공 + 메모 기록 실패 → 메모만 재시도. GitHub 이슈는 보존되므로 데이터 손실 없음. 요약표에 `note_failed` 경고.
 - 회귀 재등록은 새 이슈 본문 상단의 "Regression from #N" 참조로만 처리 — 기존 이슈는 건드리지 않는다.
 
-### Step 4-bis. CLOSE_CRASHLYTICS(outdated_version) 처리
+### Step 4-bis. Firebase Crashlytics close (auto_close_queue + close_queue 처리)
 
-`CLOSE_CRASHLYTICS` 분류된 이슈는 GitHub을 건드리지 않고 Firebase 측에만 액션한다. `mcp__firebase__crashlytics_update_issue` (state=`CLOSED`)를 직접 호출한다.
+**입력**: `auto_close_queue` (분류 단계에서 OPEN 이슈가 존재해 자동 라우팅된 `SKIP(already_registered)`/`SKIP(legacy_linked, OPEN)`) + `close_queue` (Step 3.6에서 사용자가 `스킵하고 Crashlytics 닫기` 선택한 케이스). 자동 분류된 `CLOSE_CRASHLYTICS(outdated_version)`은 결정 큐를 거쳐 사용자 결정을 받은 후 `close_queue`로 진입한다. 두 큐를 같은 절차로 처리하되 감사 메모의 `reason` 접두어가 분기된다 (`auto_close_*` vs `user_decision_*` vs `outdated_version`).
 
-분류 단계에서 `config.regression.auto_close == false`면 미리 `auto_close_skipped`로 다운그레이드되어 본 단계가 실행되지 않는다(아래 **"다운그레이드 진입점"** 참조). 런타임 close 호출 실패는 별개의 경로로 처리되며 `failed: firebase_close_failed`로 결과 표에 표기된다(아래 **"부분 실패 복구"** 참조). 두 경로는 서로 변환되지 않는다.
+GitHub은 건드리지 않고 Firebase 측에만 액션한다. `mcp__firebase__crashlytics_update_issue` (state=`CLOSED`)를 직접 호출한다.
 
 한 어시스턴트 턴에서 두 호출을 병렬로 발행:
 
-1. **상태 변경**: `mcp__firebase__crashlytics_update_issue` 를 `state="CLOSED"`로 호출.
-2. **감사 메모**: `mcp__firebase__crashlytics_create_note`로 auto-close 메모 append:
-   ```
-   [crashlytics-to-issue] auto-closed: outdated_version v<crashlytics_max_version> <= closed #<previous_issue_number> v<closed_issue_max_version>
-   ```
-   상세는 `references/note-schema.md`의 **Auto-close Note Format**.
-3. GitHub 이슈는 수정하지 않는다 (이미 close 상태이므로 부수효과 없음).
+1. **상태 변경**: `mcp__firebase__crashlytics_update_issue`를 `state="CLOSED"`로 호출.
+2. **감사 메모**: `mcp__firebase__crashlytics_create_note`로 auto-close 메모 append. 포맷(Long/Short) 분기와 분류별 `reason` 매핑은 **`references/note-schema.md`의 Auto-close Note Format**에 단일 정의된다. SKILL.md 본문은 분기 조건을 중복 기술하지 않는다 — Long/Short 어느 쪽을 써야 하는지는 `reason` 값과 `closed_issue_max_version` 보유 여부로 결정되며 해당 reference의 Reason Enum 표가 유일한 진실 원천이다 (`auto_close_*` 접두어는 자동 라우팅, `user_decision_*`은 사용자 결정 출처).
+
+3. GitHub 이슈는 수정하지 않는다 — CLOSED이면 부수효과 없음, OPEN이면 사용자 의도(스킵)대로 보존.
 
 **부분 실패 복구**:
 
-- 상태 변경 실패 → `config.retry.max_attempts`까지 재시도. 마지막까지 실패하면 결과 표에 `failed: firebase_close_failed` + 사유 표기. 다음 실행에서 다시 시도(이슈는 여전히 OPEN이므로 멱등).
-- 상태 변경 성공·메모 실패 → 메모만 재시도. 결과 표에 `note_failed` 경고. 다음 실행 때 이슈는 OPEN이 아니므로 재처리되지 않음(데이터 손실 없음, 감사 로그만 누락).
-
-**다운그레이드 진입점**: 분류 단계에서 `config.regression.auto_close == false`이면 `CLOSE_CRASHLYTICS`가 `SKIP(already_fixed, warning="auto_close_skipped")`로 변환된다(상세 의사코드는 `references/filter-rules.md`의 `classify()` 끝부분). 분류 결과가 확정된 뒤의 런타임 close 호출 실패는 위 **"부분 실패 복구"** 경로를 따른다 — `auto_close_skipped`로 사후 변환되지 않는다.
+- 상태 변경 실패 → `config.retry.max_attempts`까지 재시도. 마지막까지 실패하면 결과 표에 `failed: firebase_close_failed` + 사유 표기. 다음 실행에서 같은 분류로 재진입하고 사용자가 다시 결정한다.
+- 상태 변경 성공·메모 실패 → 메모만 재시도. 결과 표에 `note_failed` 경고. 다음 실행 때 이슈는 close된 상태라 조회 결과에 등장하지 않음(감사 로그만 누락, 데이터 손실 없음).
 
 **`--dry-run`**: 두 호출 모두 스킵, 출력에만 `would close` 표기.
 
@@ -139,26 +199,34 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 프로즈 1~2줄로 전체 요약:
 
-> 프로젝트 `<project_id>`의 N개 앱을 조회했습니다. 총 M개 미해결 오류 중 신규 a건·회귀 b건 등록, 자동 close c건, 스킵 d건, 실패 e건.
+> 프로젝트 `<project_id>`의 N개 앱을 조회했습니다. 총 M개 미해결 오류 중 자동 등록 a건, 자동 close b건, 사용자 결정 c건(등록 d건·닫기 e건), 실패 f건.
 
-이어서 마크다운 표로 개별 결과:
+이어서 마크다운 표로 개별 결과. `원분류` 컬럼은 자동 close·결정 큐 케이스에서 "어떤 경로로 처리됐는가"의 추적 단서를 제공한다.
 
-| 상태               | Crashlytics ID | 앱                   | OS      | 오류 요약   | GitHub Issue | 사유 / 비교 결과                                |
-| ------------------ | -------------- | -------------------- | ------- | ----------- | ------------ | ----------------------------------------------- |
-| registered         | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#N](url)    | -                                               |
-| regression         | `<id>`         | `<app_display_name>` | android | `<summary>` | [#N](url)    | prev #M v1.0.3, crashlytics v1.0.4 (regression) |
-| skipped            | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#M](url)    | already_registered                              |
-| skipped            | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#K](url)    | warning: auto_close_skipped                     |
-| closed_crashlytics | `<id>`         | `<app_display_name>` | android | `<summary>` | [#K](url)    | crashlytics v1.0.3 ≤ closed #K v1.0.3           |
-| failed             | `<id>`         | `<app_display_name>` | android | `<summary>` | -            | gh 5xx after 3 retries / firebase_close_failed  |
+| 상태                    | Crashlytics ID | 앱                   | OS      | 오류 요약   | GitHub Issue | 원분류              | 사유 / 비교 결과                                 |
+| ----------------------- | -------------- | -------------------- | ------- | ----------- | ------------ | ------------------- | ------------------------------------------------ |
+| registered              | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#N](url)    | new                 | auto-registered                                  |
+| auto_closed_open_issue  | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#K](url)    | already_registered  | OPEN issue exists, crashlytics auto-closed       |
+| auto_closed_legacy_open | `<id>`         | `<app_display_name>` | android | `<summary>` | [#K](url)    | legacy_linked(OPEN) | OPEN issue linked, crashlytics auto-closed       |
+| regression_by_user      | `<id>`         | `<app_display_name>` | android | `<summary>` | [#N](url)    | regression          | user_chose_register, prev #M v1.0.3 → v1.0.4     |
+| regression_by_user      | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#N](url)    | outdated_version    | user_chose_register, prev #M v1.0.4 → v1.0.3     |
+| closed_by_user          | `<id>`         | `<app_display_name>` | android | `<summary>` | [#K](url)    | outdated_version    | user_chose_close, crashlytics v1.0.3 ≤ #K v1.0.3 |
+| aborted                 | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#M](url)    | already_fixed       | user_interrupted (다음 실행에서 재시도)          |
+| skipped_no_interactive  | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#M](url)    | already_fixed       | AskUserQuestion 도구 로드 실패                   |
+| would_ask_user          | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#M](url)    | regression          | dry-run preview                                  |
+| would_auto_close        | `<id>`         | `<app_display_name>` | ios     | `<summary>` | [#K](url)    | already_registered  | dry-run preview                                  |
+| failed                  | `<id>`         | `<app_display_name>` | android | `<summary>` | -            | new                 | gh 5xx after 3 retries / firebase_close_failed   |
+
+`--dry-run` 사용 시 `decision_queue` 케이스는 모두 `would_ask_user` 상태로, `auto_close_queue` 케이스는 `would_auto_close` 상태로 표기된다. 결정·부수효과 단계는 실제로 발행되지 않는다.
 
 ## 명령행 플래그
 
-| 플래그                | 동작                                                                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`           | Step 4 / Step 4-bis의 생성·기록·close 호출을 모두 건너뛰고 분류 결과·등록 예정 이슈 요약만 출력. 회귀·필터 판정 로직은 전부 실행됨. |
-| `--reconfigure`       | 기존 `config.json`의 `firebase.*` 및 `github.*` 값을 무시하고 Step 2 대화형 셋업 재실행. 사용자 튜닝 값(severity 등)은 보존.        |
-| `--repo <owner/repo>` | `config.github.repo` 일회성 오버라이드. config 파일은 수정하지 않음.                                                                |
+| 플래그                | 동작                                                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--dry-run`           | **Step 3.6 ~ Step 4-bis 전부 스킵**. AskUserQuestion 미발행, 부수효과 없음. 분류 결과·요약표 후보만 출력하고 `decision_queue` 케이스는 `would_ask_user` 상태로 표기. CI·자동화 파이프라인에서 인터랙티브 차단되지 않도록 보장. |
+| `--preview-decisions` | Step 3.6은 수행해 사용자 결정을 수집하되, Step 4/4-bis의 부수효과(이슈 생성·메모·close)는 모두 스킵. 결정 흐름 자체를 검증하고 싶을 때 사용.                                                                                   |
+| `--reconfigure`       | 기존 `config.json`의 `firebase.*` 및 `github.*` 값을 무시하고 Step 2 대화형 셋업 재실행. 사용자 튜닝 값(severity 등)은 보존.                                                                                                   |
+| `--repo <owner/repo>` | `config.github.repo` 일회성 오버라이드. config 파일은 수정하지 않음.                                                                                                                                                           |
 
 ## 사용 도구
 
@@ -173,7 +241,7 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 | `gh api -X POST repos/.../issues` / `gh issue list --jq` / `gh issue view --jq` | GitHub 이슈 생성(REST) · 중복 검색 · 본문 조회. 외부 jq 불필요 |
 | `python3` (표준 라이브러리 `json`만)                                            | 이슈 생성 응답 본문 파싱                                       |
 | `Agent(subagent_type: "general-purpose")`                                       | 앱별 병렬 조회 서브에이전트                                    |
-| `AskUserQuestion`                                                               | 첫 실행 셋업 대화                                              |
+| `AskUserQuestion`                                                               | 첫 실행 셋업 대화 + Step 3.6 사용자 결정 수집                  |
 
 ## 참조 리소스
 
@@ -191,5 +259,6 @@ Firebase Crashlytics의 최근 미해결 오류를 조회해, 아직 GitHub에 �
 
 - **영구 설정 분리 + 프로젝트 격리**: 사용자 셋업은 `${CLAUDE_PLUGIN_DATA}/.../<PROJECT_KEY>/`에, 작성자 기본값은 `${CLAUDE_SKILL_DIR}/config.json`에 분리. PROJECT_KEY는 git remote URL의 `<owner>-<repo>` 형태로 자동 추출되어 여러 프로젝트의 셋업이 격리된다.
 - **하드코딩 제로**: 프로젝트 ID·앱 ID·레포지토리 등 모든 환경값은 `config.json`으로 외부화.
-- **부분 실패 내성**: 재시도 + 멱등 가드(`crashlytics_issue_id` 메타 주석) + 메모 실패가 이슈 생성을 막지 않음.
+- **자동 vs 자동 close vs 사용자 결정 3-way 분리**: 신규 오류(`REGISTER(new)`)는 자동 등록, OPEN GitHub 이슈가 추적 중인 두 분류(`SKIP(already_registered)`/`SKIP(legacy_linked, OPEN)`)는 자동 close, 나머지 5개 분류는 Step 3.6에서 사용자 결정. 분류 단계의 큐 라우팅이 안전한 디폴트를 강제해 중복 OPEN 이슈를 원천 차단하고 결정 큐 노이즈를 줄인다. `classify()`의 분류 라벨은 결정 컨텍스트로 보존되어 요약표의 `분류 사유` 컬럼으로 노출된다.
+- **부분 실패 내성**: 재시도 + 멱등 가드(`crashlytics_issue_id` 메타 주석) + 메모 실패가 이슈 생성을 막지 않음. 사용자 중단 시에도 진행된 케이스의 부수효과는 보존되며 잔여만 다음 실행에서 재진입.
 - **앱 수 독립 latency**: 서브에이전트 병렬 디스패치로 조회 단계는 앱 수와 무관하게 일정한 wall-clock에 수렴.

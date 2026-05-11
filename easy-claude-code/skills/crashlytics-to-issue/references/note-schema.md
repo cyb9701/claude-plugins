@@ -30,7 +30,11 @@
 
 ## Auto-close Note Format
 
-`CLOSE_CRASHLYTICS(outdated_version)` 분류된 이슈를 Firebase API로 close하면서 함께 append하는 감사용 메모.
+Firebase Crashlytics 이슈를 close하면서 함께 append하는 감사용 메모. 두 가지 포맷이 존재한다 — 닫힌 GitHub 이슈의 `max_app_version`을 비교 컨텍스트로 가질 수 있느냐에 따라 분기.
+
+### Long Format (closed 비교 컨텍스트 있음)
+
+`CLOSE_CRASHLYTICS(outdated_version)` 또는 `REGISTER(regression)`처럼 닫힌 이슈의 `max_app_version`이 명확한 케이스에서 사용.
 
 ```
 [crashlytics-to-issue] auto-closed: <reason> v<crashlytics_max_version> <= closed #<previous_issue_number> v<closed_issue_max_version>
@@ -38,18 +42,63 @@
 
 예: `[crashlytics-to-issue] auto-closed: outdated_version v1.0.3 <= closed #105 v1.0.3`
 
+### Short Format (linked 참조만)
+
+`SKIP(already_registered)`처럼 이전 이슈가 OPEN(`auto_close_queue` 자동 라우팅)이거나 `SKIP(legacy_linked, OPEN)`처럼 본문 매칭만 있는 OPEN 케이스, 또는 CLOSED이지만 본문 파싱 실패한 케이스 — 닫힌 시점의 `max_app_version`을 신뢰할 수 없을 때 사용.
+
+```
+[crashlytics-to-issue] auto-closed: <reason> v<crashlytics_max_version> linked #<previous_issue_number>
+```
+
+예: `[crashlytics-to-issue] auto-closed: auto_close_open_issue v1.0.4 linked #87`
+
 ### Auto-close Parsing
 
+두 포맷을 동시에 매칭하는 단일 정규식:
+
 ```
-^\[crashlytics-to-issue\] auto-closed: ([\w-]+) v(\S+) <= closed #(\d+) v(\S+)$
+^\[crashlytics-to-issue\] auto-closed: ([\w-]+) v(\S+)(?: <= closed #(\d+) v(\S+)| linked #(\d+))$
 ```
 
-- Group 1: `reason` (예: `outdated_version`)
+- Group 1: `reason` (예: `outdated_version`, `auto_close_open_issue`, `user_decision_fixed`)
 - Group 2: `crashlytics_max_version`
-- Group 3: `previous_issue_number`
-- Group 4: `closed_issue_max_version`
+- Group 3: `previous_issue_number` (long format)
+- Group 4: `closed_issue_max_version` (long format)
+- Group 5: `previous_issue_number` (short format)
 
-`reason`은 `[\w-]+`로 받아 `outdated_version` / `out-of-support` 등 enum 확장에도 lock-in 없이 대응한다.
+호출부는 Group 3과 Group 5 중 매칭된 쪽을 `previous_issue_number`로 사용한다. Group 4가 비어 있으면 short format으로 판정한다.
+
+### Reason Enum
+
+`reason`은 `[\w-]+`로 받아 enum 확장을 lock-in 없이 허용한다. 현재 정의된 값:
+
+| Reason                      | 발생 컨텍스트                                                                      | 사용 포맷                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `auto_close_open_issue`     | `SKIP(already_registered)` 분류 — `auto_close_queue` 자동 라우팅 (사용자 미개입).  | Short (OPEN 이슈이므로 closed_max 없음)                                  |
+| `auto_close_legacy_open`    | `SKIP(legacy_linked, OPEN)` 분류 — `auto_close_queue` 자동 라우팅 (사용자 미개입). | Short                                                                    |
+| `outdated_version`          | `CLOSE_CRASHLYTICS(outdated_version)` 분류된 케이스에서 사용자가 `닫기` 선택.      | Long                                                                     |
+| `user_decision_regression`  | `REGISTER(regression)` 분류 + 사용자 `닫기` 선택.                                  | Long                                                                     |
+| `user_decision_fixed`       | `SKIP(already_fixed)` 분류 + 사용자 `닫기` 선택.                                   | Long when closed_issue_max_version is present, else Short                |
+| `user_decision_not_planned` | `SKIP(closed_not_planned)` 분류 + 사용자 `닫기` 선택.                              | Long                                                                     |
+| `user_decision_legacy`      | `SKIP(legacy_linked, CLOSED)` 분류 + 사용자 `닫기` 선택.                           | Long when GitHub issue state == CLOSED and parsing succeeded, else Short |
+
+**접두어 의미**:
+
+- `auto_close_*` — 분류 단계에서 자동 라우팅된 close (사용자 결정 없이 시스템이 안전한 디폴트로 처리).
+- `user_decision_*` — Step 3.6 사용자 결정에서 비롯된 close.
+- `outdated_version` — 별도 reason (사용자 결정이지만 분류 자체가 명시적이라 접두어 없음).
+
+한 줄만 보고도 close 출처를 자동/사용자로 구분 가능하다.
+
+## Decision Audit Trail
+
+Step 3.6 사용자가 `닫기`를 선택했거나 분류 단계에서 `auto_close_queue`로 자동 라우팅되면 본 메모가 Firebase Crashlytics에 append된다. 이 메모는 다음 실행에서 다음 효과를 보장한다:
+
+1. **멱등 보장**: 이미 close된 Crashlytics 이슈는 다음 실행의 조회 결과(`crashlytics_list_events`)에 등장하지 않는다. 따라서 같은 이슈에 대해 자동 close나 사용자 결정이 반복되지 않는다.
+2. **감사 가능성**: `reason` 필드의 `auto_close_*` / `user_decision_*` 접두어로 "왜 닫혔는가"의 컨텍스트를 한 줄에서 즉시 파악 가능 — 자동 close인지 사용자 결정인지 즉시 식별. 운영 회고 시 잘못된 결정·라우팅을 역추적할 수 있다.
+3. **수동 reopen 안전성**: 운영자가 Firebase 콘솔에서 close를 reopen하면 다시 조회 결과에 등장하지만, tracking 메모가 그대로 남아 있어 같은 GitHub 이슈와 연결된 상태가 유지된다. 사용자는 새 컨텍스트에서 다시 결정할 수 있다 (`auto_close_*` 케이스라면 같은 분류로 재진입해 다시 auto-close, `user_decision_*`이라면 결정 큐 진입).
+
+설계 원칙: append-only 보존(라인 73) + 멱등 키 분리(tracking 메모 vs auto-close 메모)로 사용자 결정 이력은 누적되며 잃지 않는다.
 
 ## 최신 메모 선택 (Tracking 한정)
 

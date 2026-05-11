@@ -66,6 +66,43 @@ gh label create "state:regression"     --repo "$REPO" --description "Regression"
 
 입력값은 해당 프로젝트의 `${CLAUDE_PLUGIN_DATA}/.../projects/<PROJECT_KEY>/config.json`에 저장. 다음 실행부터 셋업이 생략되며, 다른 프로젝트로 이동하면 그 프로젝트의 별도 PROJECT_KEY 디렉토리에서 새 셋업이 트리거된다.
 
+## After Setup (실행 시 사용자 결정 흐름)
+
+실행 결과는 세 경로로 자동 분기된다:
+
+1. **신규 오류 자동 등록** — 추적 기록이 없는 신규 케이스는 GitHub 이슈가 자동 생성된다.
+2. **OPEN 이슈 자동 close** — 이미 OPEN GitHub 이슈가 추적 중인 케이스(`SKIP(already_registered)`/`SKIP(legacy_linked, OPEN)`)는 사용자 결정 없이 Crashlytics만 자동 close. 중복 OPEN 이슈가 생기지 않도록 분류 단계에서 강제된다.
+3. **사용자 결정** — CLOSED 이슈가 있거나 회귀·outdated_version 분류의 케이스(`regression`/`already_fixed`/`closed_not_planned`/`legacy_linked, CLOSED`/`outdated_version`)는 매 실행마다 비교 요약표가 표시되며, `이슈에 등록` 또는 `스킵하고 Crashlytics 닫기` 중 하나를 케이스별로 선택한다.
+
+결정이 필요한 케이스만 사용자에게 노출되므로 무한히 쌓이지 않는다. 자세한 의사결정 흐름은 `SKILL.md`의 Step 3.6 참고.
+
+## Migration Notes
+
+### `regression.auto_close` 키 폐기 (Step 3.6 도입 시점)
+
+자동 등록과 사용자 결정 흐름이 분리되면서 `regression.auto_close` 설정이 폐기됐다. 회귀·OPEN 이슈 케이스의 Crashlytics close 여부는 더 이상 config 플래그가 아니라 **분류 단계의 큐 라우팅 + Step 3.6 사용자 결정**으로 정해진다.
+
+**영향 범위**: 기존 사용자의 영구 저장소 `${CLAUDE_PLUGIN_DATA}/crashlytics-to-issue/projects/<PROJECT_KEY>/config.json`에 `regression.auto_close` 키가 남아 있을 수 있다. 이 키는 **무시되며**, 스킬 동작에 영향을 주지 않는다. 별도 마이그레이션 액션은 필수가 아니다.
+
+**선택적 정리** (cosmetic):
+
+```bash
+PROJECT_KEY=$(git remote get-url origin 2>/dev/null \
+  | sed -E 's|^https?://[^/]+/||; s|^git@[^:]+:||; s|\.git$||; s|/|-|g' \
+  | tr '[:upper:]' '[:lower:]')
+CFG=~/.claude/plugins/data/easy-claude-code*/crashlytics-to-issue/projects/$PROJECT_KEY/config.json
+python3 -c "
+import json, sys
+p = '$CFG'
+c = json.load(open(p))
+c.pop('regression', None)
+json.dump(c, open(p, 'w'), indent=2, ensure_ascii=False)
+print('cleaned:', p)
+"
+```
+
+향후 추가될 키도 동일한 forward-compatibility 원칙을 따른다 — 모르는 키는 무시, 빠진 키는 번들 기본값으로 채움.
+
 ## Customization
 
 - **제목 포맷·모듈 추론**: 커스터마이즈 불가. 제목은 항상 `[Firebase Crashlytics] {module} - {summary}`. `{module}`은 LLM이 직접 추론 (`module-inference.md` 참고).

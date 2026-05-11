@@ -258,19 +258,93 @@ Custom Keys / Breadcrumbs / Logs 도 동일 — `### Custom Keys (iOS)` / `### C
 
 ## Regression Rendering
 
-`REGISTER(regression)`일 때 본문 최상단(`## Crashlytics Report` 앞)에 prepend:
+다음 두 조건 중 하나에서 본문 최상단(`## Crashlytics Report` 앞)에 prepend된다. 두 경우 모두 `state:regression` 라벨이 함께 부여되어 GitHub에서 회귀로 일관 필터 가능하다.
+
+1. **자동 분류**: `REGISTER(regression)` — Crashlytics 새 이벤트의 `max_app_version`이 닫힌 이슈의 `max_app_version`보다 큼.
+2. **사용자 결정**: Step 3.6에서 사용자가 `등록`을 선택했고, 분류 컨텍스트에 `previous_issue_number`가 있고 이전 GitHub 이슈가 `CLOSED` 상태인 경우 — 즉 분류가 `SKIP(already_fixed)` / `SKIP(closed_not_planned)` / `SKIP(legacy_linked, CLOSED)` / `CLOSE_CRASHLYTICS(outdated_version)`인 케이스. `SKIP(already_registered)`나 `SKIP(legacy_linked, OPEN)` 분류는 `auto_close_queue`로 직접 라우팅되어 GitHub 이슈를 만들지 않으므로 prepend·라벨이 적용될 경로 자체가 없다.
+
+Prepend 본문:
 
 ```markdown
 > **⚠️ Regression detected**
 >
-> 이 크래시는 이전에 [#{previous_issue_number}]({previous_issue_url})로 등록·처리됐지만, 닫힌 이슈의 max_app_version `{closed_issue_max_version}` 이후 버전인 `{crashlytics_max_version}`에서 다시 관측되어 회귀로 재등록됐다.
+> 이 크래시는 이전에 [#{previous_issue_number}]({previous_issue_url})로 등록·처리됐지만 재등록됐다.
 >
+> - Trigger: `{regression_trigger}` <!-- auto_regression | user_decision -->
 > - Previous issue: [#{previous_issue_number}]({previous_issue_url})
 > - Previous issue max app version: `{closed_issue_max_version}`
 > - Crashlytics current max app version: `{crashlytics_max_version}`
 ```
 
-`regression` 라벨로 GitHub에서 필터 가능. 본문은 회귀 판정 근거(버전)만 노출 — 시각·콘솔 링크는 GitHub timeline / Crashlytics 콘솔에서 한 클릭으로 확인 가능하므로 중복 표시하지 않는다.
+`{regression_trigger}` 값:
+
+- `classification == REGISTER(regression)` → `auto_regression` (메인 세션 자동 분류).
+- Step 3.6에서 사용자가 `이슈에 등록`을 선택했고 회귀 조건이 부여된 케이스 → `user_decision`.
+
+본문 단독으로 봐도 자동 감지인지 사용자 결정인지 구분 가능하며, `state:regression` 라벨은 두 경우 모두 동일하게 부여된다.
+
+`closed_issue_max_version`이 None이면(`already_fixed` 파싱 실패, `legacy_linked` 등) 해당 라인을 생략한다. `previous_issue_number`는 항상 존재 — 회귀 prepend가 적용되는 모든 케이스가 추적 메모 또는 본문 메타 매칭을 통해 이전 이슈 번호를 보유한다.
+
+본문은 회귀 판정 근거(버전·이전 이슈 링크)만 노출 — 시각·콘솔 링크는 GitHub timeline / Crashlytics 콘솔에서 한 클릭으로 확인 가능하므로 중복 표시하지 않는다.
+
+## Decision Summary Table
+
+Step 3.6 (사용자 결정 수집)에서 `decision_queue`의 각 케이스마다 사용자에게 보여주는 비교 요약표. **GitHub Issue Body에는 들어가지 않는다** — AskUserQuestion의 description으로만 렌더된다.
+
+### Template
+
+```markdown
+### `{crashlytics_issue_id}` — {title_summary}
+
+**이전 GitHub Issue**: [#{previous_issue_number}]({previous_issue_url}) (`{state}`, `{state_reason}`)
+**분류 사유**: `{reason}`
+
+| 비교 항목       | 이전 (닫힌 이슈) | 현재 (Crashlytics)     | 변화                             |
+| --------------- | ---------------- | ---------------------- | -------------------------------- |
+| Max App Version | v{closed_max}    | v{crashlytics_max}     | {⬆ 회귀 / = 동일 / ⬇ 구버전 / -} |
+| 최근 3일 이벤트 | -                | {event_count}          | -                                |
+| 영향 사용자     | -                | {impacted_users_count} | -                                |
+| 마지막 발생     | {prev_last_seen} | {last_seen_at}         | {delta_days}일 전                |
+
+**스택 첫 프레임**: `{first_frame}`
+**모듈 / 심각도**: `{module}` · `{severity}`
+```
+
+### Placeholder 매핑
+
+| Placeholder                                                                                                                                            | 출처                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crashlytics_issue_id`, `title_summary`, `last_seen_at`, `event_count`, `impacted_users_count`, `crashlytics_max`, `first_frame`, `module`, `severity` | 서브에이전트 반환 JSON                                                                                                                                        |
+| `previous_issue_number`, `previous_issue_url`                                                                                                          | `classification.context` (filter-rules.md의 `classify()` 반환)                                                                                                |
+| `state`, `state_reason`                                                                                                                                | Step 3.5에서 `gh issue view --json state,stateReason` 결과 그대로 (이미 조회됨, 추가 API 호출 없음)                                                           |
+| `reason`                                                                                                                                               | `classification.reason` 값 그대로 — `decision_queue` 진입 5개 분류 (`regression`, `already_fixed`, `closed_not_planned`, `legacy_linked`, `outdated_version`) |
+| `closed_max`                                                                                                                                           | `classification.context.closed_issue_max_version`. 없으면 `-`                                                                                                 |
+| 변화 화살표                                                                                                                                            | `semver_compare(crashlytics_max, closed_max)` 재계산. `>0 → ⬆ 회귀` · `=0 → = 동일` · `<0 → ⬇ 구버전` · None → `-`                                            |
+| `delta_days`                                                                                                                                           | `(now - last_seen_at).days`                                                                                                                                   |
+| `prev_last_seen`                                                                                                                                       | `parse_last_seen_from_body(gh.body)` → 실패 시 `gh.closedAt` fallback → 둘 다 없으면 `-` (filter-rules.md 참조)                                               |
+
+### 분류별 컬럼 분기
+
+`decision_queue`에 들어오는 5개 분류만 본 요약표에 등장한다 — `SKIP(already_registered)`와 `SKIP(legacy_linked, OPEN)`은 `auto_close_queue`로 직접 라우팅되어 사용자에게 노출되지 않는다 (분류 단계의 안전 가드).
+
+- `regression`, `already_fixed`, `closed_not_planned`, `outdated_version`: 모든 행 정상 표시 (이전 이슈가 CLOSED).
+- `legacy_linked` (CLOSED만 진입): 본문 파싱 성공 여부에 따라 값 또는 `-`.
+
+### 통합 이슈 (같은 display_name, 여러 앱)
+
+요약표는 1건만 표시하되 데이터는 통합 후 값을 사용:
+
+- `crashlytics_issue_id`: 앱별 ID를 멀티라인 또는 콤마 구분으로 모두 표시.
+- `Max App Version` 이전/현재: 통합 후 global max(`max(앱별 max)`).
+- `event_count`, `impacted_users_count`: 합산.
+- `last_seen_at`: `max(앱별 last_seen_at)`.
+- `reason`: 앱별 분류가 다르면 `regression (iOS) + outdated_version (Android)` 형태로 모두 표기 (사용자 판단 컨텍스트 손실 방지).
+
+### 설계 근거
+
+- **GitHub Issue Body와 분리**: 결정 요약표는 사용자 인터랙션용이고 영구 저장(이슈 본문)되지 않는다. 두 책임을 한 템플릿에 합치면 본문이 의사결정 UI 텍스트로 오염되어 노이즈가 된다.
+- **`이전 (닫힌 이슈)` 컬럼의 비대칭 정보**: `이벤트 수`·`영향 사용자`는 닫힌 시점 데이터를 보존하지 않으므로 `-`. 사용자는 현재 수치와 분류 사유로 판단한다.
+- **변화 화살표 한 글자**: 사용자가 요약표를 빠르게 스캔할 때 회귀(⬆) vs 구버전(⬇)을 즉시 인지하도록 한 글자 표기. semver 파싱 실패 시 `-`로 안전 fallback.
 
 ## Labels
 

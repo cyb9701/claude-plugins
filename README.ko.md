@@ -22,8 +22,8 @@
 Claude Code를 열고 세션 안에서 아래 명령을 실행합니다:
 
 ```shell
-/plugin marketplace add cyb9701/easy-claude-code
-/plugin install easy-claude-code@easy-claude-code
+/plugin marketplace add cyb9701/claude-plugins
+/plugin install easy-claude-code@cyb9701-claude-plugins
 /reload-plugins
 ```
 

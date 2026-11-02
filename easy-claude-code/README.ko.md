@@ -24,16 +24,16 @@
 Claude Code를 열고 세션 안에서 아래 명령을 실행합니다:
 
 ```shell
-/plugin marketplace add cyb9701/easy-claude-code
-/plugin install easy-claude-code@easy-claude-code
+/plugin marketplace add cyb9701/claude-plugins
+/plugin install easy-claude-code@cyb9701-claude-plugins
 /reload-plugins
 ```
 
 ### 로컬 개발
 
 ```bash
-git clone https://github.com/cyb9701/easy-claude-code.git
-claude --plugin-dir ./easy-claude-code/easy-claude-code
+git clone https://github.com/cyb9701/claude-plugins.git
+claude --plugin-dir ./claude-plugins/easy-claude-code
 ```
 
 재시작 없이 변경 사항을 적용하려면:

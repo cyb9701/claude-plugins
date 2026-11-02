@@ -24,16 +24,16 @@
 Open Claude Code and run inside a session:
 
 ```shell
-/plugin marketplace add cyb9701/easy-claude-code
-/plugin install easy-claude-code@easy-claude-code
+/plugin marketplace add cyb9701/claude-plugins
+/plugin install easy-claude-code@cyb9701-claude-plugins
 /reload-plugins
 ```
 
 ### Local development
 
 ```bash
-git clone https://github.com/cyb9701/easy-claude-code.git
-claude --plugin-dir ./easy-claude-code/easy-claude-code
+git clone https://github.com/cyb9701/claude-plugins.git
+claude --plugin-dir ./claude-plugins/easy-claude-code
 ```
 
 To apply changes without restarting:

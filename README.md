@@ -22,8 +22,8 @@
 Open Claude Code and run inside a session:
 
 ```shell
-/plugin marketplace add cyb9701/easy-claude-code
-/plugin install easy-claude-code@easy-claude-code
+/plugin marketplace add cyb9701/claude-plugins
+/plugin install easy-claude-code@cyb9701-claude-plugins
 /reload-plugins
 ```
 

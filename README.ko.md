@@ -1,42 +1,72 @@
-# easy-claude-code
+# cyb9701-claude-plugins
 
 🌐 [English](README.md) | **한국어**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-orange)](https://github.com/anthropics/claude-code)
 
-> Claude Code를 더 잘 활용하기 위한 실용적인 도구 모음입니다.
+> Claude Code용 개인 플러그인 마켓플레이스입니다.
 > **공식 Anthropic 제품이 아닌 개인 프로젝트입니다.**
 
-## 스킬 목록
+## 플러그인 목록
 
-| 스킬                       | 호출 형식                                                      | 용도                                                                                                                            |
-| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                     | 원본 의도를 보존하면서 사용자 프롬프트를 Claude 최적화 형태로 재구성합니다.                                                     |
-| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                       | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 동기화하고 회귀를 자동 감지합니다.                                    |
-| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]`     | Crashlytics 연동 GitHub Issue를 워크트리 격리 환경에서 분석하고 이슈마다 PR 1개를 생성합니다.                                   |
-| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                               | 활성 플러그인·user·project 영역의 모든 스킬을 테이블로 출력합니다. 키워드 필터링과 번역을 지원합니다. `haiku` 모델로 실행됩니다. |
+| 플러그인                                 | 설명                                                                    | 문서                                                                                |
+| ---------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`easy-claude-code`](./easy-claude-code) | 프롬프트 개선, Firebase Crashlytics 자동화, 스킬 탐색을 위한 스킬 모음. | [English](./easy-claude-code/README.md) · [한국어](./easy-claude-code/README.ko.md) |
 
 ## 빠른 시작
 
-Claude Code를 열고 세션 안에서 아래 명령을 실행합니다:
+Claude Code를 열고 마켓플레이스를 한 번 추가합니다:
 
 ```shell
 /plugin marketplace add cyb9701/claude-plugins
-/plugin install easy-claude-code@cyb9701-claude-plugins
+```
+
+위 표에서 플러그인을 골라 설치하고 다시 로드합니다:
+
+```shell
+/plugin install <plugin>@cyb9701-claude-plugins
 /reload-plugins
 ```
 
-설치 후 대부분의 스킬은 `easy-claude-code` 네임스페이스로 호출하지만, `skill-tree`는 네임스페이스 없이 직접 호출합니다:
+예를 들어 다음 명령은 `easy-claude-code`를 설치합니다:
 
 ```shell
-/easy-claude-code:prompt-refine <텍스트>
-/easy-claude-code:crashlytics-to-issue
-/easy-claude-code:crashlytics-issue-to-fix
-/skill-tree
+/plugin install easy-claude-code@cyb9701-claude-plugins
 ```
 
-전체 사전 요구사항과 사용 예시는 [`easy-claude-code/README.md`](./easy-claude-code/README.md)를 참고하세요.
+플러그인 스킬은 `/<plugin>:<skill>` 형식으로 호출합니다. 스킬 목록, 사전 요구사항, 사용 예시는 각 플러그인의 README를 참고하세요.
+
+## 저장소 구조
+
+```text
+.
+├── .claude-plugin/
+│   └── marketplace.json    # 마켓플레이스 카탈로그
+└── <plugin>/
+    ├── .claude-plugin/
+    │   └── plugin.json     # 플러그인 매니페스트
+    ├── skills/
+    ├── README.md
+    └── README.ko.md
+```
+
+## 플러그인 추가
+
+1. 위 구조로 `<plugin>/` 폴더를 만듭니다. 플러그인 이름은 기능을 나타내도록 정합니다. 이름은 `claude-`로 시작할 수 없습니다.
+2. `<plugin>/.claude-plugin/plugin.json`에 `name`, `description`, `version`, `author`를 씁니다.
+3. `.claude-plugin/marketplace.json`의 `plugins` 배열에 플러그인을 추가합니다:
+
+   ```json
+   {
+     "name": "<plugin>",
+     "source": "./<plugin>",
+     "description": "<한 줄 설명>"
+   }
+   ```
+
+4. `README.md`와 `README.ko.md`의 [플러그인 목록](#플러그인-목록) 표에 행을 추가합니다.
+5. 저장소 루트에서 `claude plugin validate .`를 실행합니다. 커밋하기 전에 오류를 모두 수정합니다.
 
 ## 라이선스
 

@@ -1,42 +1,72 @@
-# easy-claude-code
+# cyb9701-claude-plugins
 
 🌐 **English** | [한국어](README.ko.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-orange)](https://github.com/anthropics/claude-code)
 
-> Practical tools for getting more out of Claude Code.
+> A personal plugin marketplace for Claude Code.
 > **This is a personal project, not an official Anthropic product.**
 
-## Skills
+## Plugins
 
-| Skill                      | Invocation                                                 | Purpose                                                                                                                                              |
-| -------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
-| `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
-| `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
-| `skill-tree`               | `/skill-tree [<lang>] [<query>]`                           | Lists all active plugin, user, and project skills in a table. Supports keyword filtering and ISO language description translation. Runs on `haiku`. |
+| Plugin                                   | Description                                                                         | Docs                                                                                |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [`easy-claude-code`](./easy-claude-code) | Skills for prompt refinement, Firebase Crashlytics automation, and skill discovery. | [English](./easy-claude-code/README.md) · [한국어](./easy-claude-code/README.ko.md) |
 
 ## Quick Start
 
-Open Claude Code and run inside a session:
+Open Claude Code and add the marketplace once:
 
 ```shell
 /plugin marketplace add cyb9701/claude-plugins
-/plugin install easy-claude-code@cyb9701-claude-plugins
+```
+
+Install a plugin from the table above, then reload:
+
+```shell
+/plugin install <plugin>@cyb9701-claude-plugins
 /reload-plugins
 ```
 
-After installation, most skills are available under the `easy-claude-code` namespace, except `skill-tree` which is invoked directly:
+For example, this command installs `easy-claude-code`:
 
 ```shell
-/easy-claude-code:prompt-refine <text>
-/easy-claude-code:crashlytics-to-issue
-/easy-claude-code:crashlytics-issue-to-fix
-/skill-tree
+/plugin install easy-claude-code@cyb9701-claude-plugins
 ```
 
-For full prerequisites and usage examples, see [`easy-claude-code/README.md`](./easy-claude-code/README.md).
+Plugin skills use the `/<plugin>:<skill>` format. Each plugin README lists its skills, prerequisites, and usage examples.
+
+## Repository Layout
+
+```text
+.
+├── .claude-plugin/
+│   └── marketplace.json    # Marketplace catalog
+└── <plugin>/
+    ├── .claude-plugin/
+    │   └── plugin.json     # Plugin manifest
+    ├── skills/
+    ├── README.md
+    └── README.ko.md
+```
+
+## Adding a Plugin
+
+1. Create a `<plugin>/` folder with the layout above. Name the plugin for what it does. A plugin name cannot start with `claude-`.
+2. Set `name`, `description`, `version`, and `author` in `<plugin>/.claude-plugin/plugin.json`.
+3. Add the plugin to the `plugins` array in `.claude-plugin/marketplace.json`:
+
+   ```json
+   {
+     "name": "<plugin>",
+     "source": "./<plugin>",
+     "description": "<one-line description>"
+   }
+   ```
+
+4. Add a row to the [Plugins](#plugins) table in `README.md` and `README.ko.md`.
+5. Run `claude plugin validate .` from the repository root. Fix all errors before you commit.
 
 ## License
 

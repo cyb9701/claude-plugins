@@ -1,4 +1,4 @@
-# cyb9701-claude-plugins
+# claude-plugins
 
 🌐 [English](README.md) | **한국어**
 

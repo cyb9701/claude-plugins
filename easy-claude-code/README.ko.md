@@ -12,7 +12,7 @@
 
 | 스킬                       | 호출 형식                                                  | 용도                                                                                                                                          |
 | -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                 | 원본 의도를 보존하면서 사용자 프롬프트를 Claude 최적화 형태로 재구성합니다.                                                                   |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <텍스트>`                 | 초안 프롬프트를 에이전트가 한 번에 끝낼 수 있는 프롬프트로 바꿉니다. 의도와 용어는 그대로 두고, 빠진 목표·대상·완료 기준·검증 방법·범위를 프로젝트를 읽거나 질문해서 채웁니다.                                                                   |
 | `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Firebase Crashlytics의 미해결 크래시·ANR을 GitHub Issue로 동기화하고 회귀를 자동 감지합니다.                                                  |
 | `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Crashlytics 연동 GitHub Issue를 워크트리 격리 환경에서 분석하고, 이슈마다 PR 1개를 생성해 일괄 검토·머지합니다.                               |
 | `skill-tree`               | `/easy-claude-code:skill-tree [<lang>] [<query>]`          | 활성 플러그인·user·project 영역의 모든 스킬을 마크다운 테이블로 출력합니다. 키워드 필터링과 ISO 언어 코드 기반 description 번역을 지원합니다. `haiku` 모델 + `disable-model-invocation: true` 로 동작하므로 슬래시 호출 전용 (자연어 호출 불가). Python 스크립트가 `` !`<command>` `` syntax 로 미리 실행되어 권한 프롬프트가 발생하지 않습니다. |
@@ -65,7 +65,7 @@ claude --plugin-dir ./claude-plugins/easy-claude-code
 
 ### `prompt-refine`
 
-외부 의존성 없음 — `AskUserQuestion`만 사용하는 폐쇄형 텍스트 변환기입니다.
+외부 의존성 없음. 현재 프로젝트를 읽기·검색만 해서(`Read`, `Grep`, `Glob`, `ls`/`find`/`grep`/`rg`) 확인하고 `AskUserQuestion` 으로 묻습니다. 파일 수정이나 명령 실행은 하지 않습니다.
 
 ## 사용 예시
 
@@ -167,8 +167,7 @@ easy-claude-code/
     │   └── references/
     ├── prompt-refine/
     │   ├── SKILL.md
-    │   ├── evals/
-    │   └── references/
+    │   └── evals/
     └── skill-tree/
         ├── SKILL.md        # disable-model-invocation + !`...` inline 실행을 사용하는 haiku 스킬
         └── list-skills.py  # plugin/user/project 스킬 카탈로그 생성기 (Python 표준 라이브러리만 사용)

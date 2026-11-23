@@ -12,7 +12,7 @@
 
 | Skill                      | Invocation                                                 | Purpose                                                                                                                                              |
 | -------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Rewrites a user prompt into a Claude-optimized form while preserving the original intent.                                                            |
+| `prompt-refine`            | `/easy-claude-code:prompt-refine <text>`                   | Turns a draft prompt into one an agent can finish in one pass: keeps the intent and terms, fills in missing goal, target, done criteria, verification and scope by reading the project or asking you.                                                            |
 | `crashlytics-to-issue`     | `/easy-claude-code:crashlytics-to-issue`                   | Syncs unresolved Firebase Crashlytics crashes/ANRs into GitHub Issues with automatic regression detection.                                           |
 | `crashlytics-issue-to-fix` | `/easy-claude-code:crashlytics-issue-to-fix [<issue#>...]` | Analyzes Crashlytics-linked GitHub Issues in isolated git worktrees and opens one PR per issue for batch review and merge.                           |
 | `skill-tree`               | `/easy-claude-code:skill-tree [<lang>] [<query>]`          | Prints a Markdown table of all active plugin, user, and project skills. Supports keyword filtering and ISO language description translation. Runs on `haiku` with `disable-model-invocation: true` — slash-only, no natural-language trigger. The catalog is pre-rendered by a Python script via `` !`<command>` `` syntax so no permission prompts appear. |
@@ -65,7 +65,7 @@ See each skill's `references/installation.md` for detailed setup instructions.
 
 ### `prompt-refine`
 
-No external dependencies — closed-form text transformer using only `AskUserQuestion`.
+No external dependencies. Reads and searches the current project read-only (`Read`, `Grep`, `Glob`, `ls`/`find`/`grep`/`rg`) and asks with `AskUserQuestion`; it never edits files or runs commands.
 
 ## Usage
 
@@ -167,8 +167,7 @@ easy-claude-code/
     │   └── references/
     ├── prompt-refine/
     │   ├── SKILL.md
-    │   ├── evals/
-    │   └── references/
+    │   └── evals/
     └── skill-tree/
         ├── SKILL.md        # haiku skill with disable-model-invocation + !`...` inline execution
         └── list-skills.py  # Plugin/user/project skill catalog generator (Python stdlib only)
